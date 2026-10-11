@@ -3,10 +3,17 @@ export function layoutSphere(nodes, options = {}) {
 
   const radius = options.radius ?? 200;
   const rotationY = options.rotationY ?? 0;
-  const count = nodes.length;
+  const rootId = options.rootId ?? null;
   const positions = {};
 
-  nodes.forEach((n, i) => {
+  if (rootId && nodes.some(n => n.id === rootId)) {
+    positions[rootId] = { x3: 0, y3: 0, z3: 0, x: 0, y: 0, scale: 1.4 };
+  }
+
+  const rest = nodes.filter(n => n.id !== rootId || !positions[rootId]);
+  const count = rest.length;
+
+  rest.forEach((n, i) => {
     if (count === 1) {
       positions[n.id] = { x3: 0, y3: 0, z3: radius, x: 0, y: 0, scale: 1 };
       return;

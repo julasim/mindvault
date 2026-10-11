@@ -84,6 +84,17 @@ function renderSphere(ctx, graph, positions) {
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   const cx = ctx.canvas.width / 2, cy = ctx.canvas.height / 2;
+
+  ctx.strokeStyle = '#D1D5DB';
+  for (const e of graph.edges) {
+    const s = positions[e.source], t = positions[e.target];
+    if (!s || !t) continue;
+    ctx.beginPath();
+    ctx.moveTo(cx + s.x, cy + s.y);
+    ctx.lineTo(cx + t.x, cy + t.y);
+    ctx.stroke();
+  }
+
   const sorted = [...graph.nodes].sort((a, b) => (positions[a.id]?.z3 ?? 0) - (positions[b.id]?.z3 ?? 0));
   for (const n of sorted) {
     const p = positions[n.id];
@@ -95,6 +106,9 @@ function renderSphere(ctx, graph, positions) {
     ctx.globalAlpha = Math.max(0.3, Math.min(1, p.scale));
     ctx.fill();
     ctx.globalAlpha = 1;
+    ctx.fillStyle = '#374151';
+    ctx.font = '11px system-ui';
+    ctx.fillText(n.id, cx + p.x + radius + 2, cy + p.y + 3);
   }
 }
 
@@ -194,7 +208,8 @@ function initViewer() {
       positions = layoutTree(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, levelHeight: 90 });
       centerCameraOnRoot(currentFiltered.nodes);
     } else if (activeView === 'sphere') {
-      positions = layoutSphere(currentFiltered.nodes, { radius: 200, rotationY: Date.now() / 4000 });
+      const root = detectRootNode(currentFiltered.nodes);
+      positions = layoutSphere(currentFiltered.nodes, { radius: 200, rotationY: Date.now() / 4000, rootId: root?.id ?? null });
     } else if (activeView === 'matrix') {
       matrixOrderedIds = layoutMatrixOrder(currentFiltered.nodes);
       matrixData = buildAdjacencyMatrix(matrixOrderedIds, currentFiltered.edges);
@@ -232,7 +247,8 @@ function initViewer() {
         recomputeAndDraw();
       });
       checkbox.dataset.tag = tag;
-      label.append(checkbox, document.createTextNode('#' + tag));
+      const count = currentGraph.nodes.filter(n => n.tags.includes(tag)).length;
+      label.append(checkbox, document.createTextNode(`#${tag} (${count})`));
       container.append(label);
     }
   }
@@ -256,6 +272,8 @@ function initViewer() {
     panel.style.display = matches.length ? 'block' : 'none';
   }
 
+  let timelineInterval = null;
+
   function setupTimeline() {
     const logContent = currentFiles.get('log/INDEX.md') ?? '';
     const events = buildTimelineEvents(logContent);
@@ -267,6 +285,28 @@ function initViewer() {
     };
     if (events.length) slider.oninput();
   }
+
+  document.getElementById('timeline-play').addEventListener('click', (e) => {
+    const slider = document.getElementById('timeline-slider');
+    if (timelineInterval) {
+      clearInterval(timelineInterval);
+      timelineInterval = null;
+      e.target.textContent = '▶';
+      return;
+    }
+    e.target.textContent = '⏸';
+    timelineInterval = setInterval(() => {
+      const next = Number(slider.value) + 1;
+      if (next > Number(slider.max)) {
+        clearInterval(timelineInterval);
+        timelineInterval = null;
+        document.getElementById('timeline-play').textContent = '▶';
+        return;
+      }
+      slider.value = String(next);
+      slider.oninput();
+    }, 800);
+  });
 
   async function loadFiles(files) {
     // Auswahl/Hover aus dem vorigen Vault zurücksetzen — sonst versuchen

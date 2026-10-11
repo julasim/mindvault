@@ -28,3 +28,16 @@ test('Rotation verändert die projizierte x-Koordinate', () => {
 test('leerer Knoten-Satz liefert leeres Ergebnis ohne Fehler', () => {
   assert.deepEqual(layoutSphere([]), {});
 });
+
+test('rootId wird exakt ins Zentrum gezwungen, restliche Knoten verteilen sich weiter auf der Kugel', () => {
+  const nodes = [{ id: 'root' }, { id: 'a' }, { id: 'b' }, { id: 'c' }];
+  const positions = layoutSphere(nodes, { radius: 100, rootId: 'root' });
+  assert.equal(positions.root.x3, 0);
+  assert.equal(positions.root.y3, 0);
+  assert.equal(positions.root.z3, 0);
+  for (const id of ['a', 'b', 'c']) {
+    const p = positions[id];
+    const dist = Math.sqrt(p.x3 ** 2 + p.y3 ** 2 + p.z3 ** 2);
+    assert.ok(Math.abs(dist - 100) < 0.001);
+  }
+});
