@@ -174,9 +174,50 @@ function initViewer() {
     redraw();
   }
 
+  function renderTagFilters() {
+    const container = document.getElementById('tag-filters');
+    const allTags = [...new Set(currentGraph.nodes.flatMap(n => n.tags))].sort();
+    container.innerHTML = '';
+    for (const tag of allTags) {
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.addEventListener('change', () => {
+        const checked = [...container.querySelectorAll('input:checked')].map(c => c.dataset.tag);
+        filters = { ...filters, activeTags: checked.length ? checked : null };
+        recomputeAndDraw();
+      });
+      checkbox.dataset.tag = tag;
+      label.append(checkbox, document.createTextNode('#' + tag));
+      container.append(label);
+    }
+  }
+
+  function renderSearchResults(query) {
+    const panel = document.getElementById('search-results');
+    if (!query) { panel.style.display = 'none'; return; }
+    const matches = searchFullText(currentFiles, query);
+    panel.innerHTML = matches.map(m => `<div><strong>${m.filename}</strong>: …${m.excerpt}…</div>`).join('');
+    panel.style.display = matches.length ? 'block' : 'none';
+  }
+
+  function setupTimeline() {
+    const logContent = currentFiles.get('log/INDEX.md') ?? '';
+    const events = buildTimelineEvents(logContent);
+    const slider = document.getElementById('timeline-slider');
+    slider.max = String(Math.max(events.length - 1, 0));
+    slider.oninput = () => {
+      const event = events[Number(slider.value)];
+      document.getElementById('timeline-label').textContent = event ? event.text : '';
+    };
+    if (events.length) slider.oninput();
+  }
+
   async function loadFiles(files) {
     currentFiles = files;
     currentGraph = buildGraph(files);
+    renderTagFilters();
+    setupTimeline();
     recomputeAndDraw();
   }
 
@@ -194,6 +235,7 @@ function initViewer() {
 
   document.getElementById('search').addEventListener('input', (e) => {
     filters = { ...filters, query: e.target.value };
+    renderSearchResults(e.target.value);
     recomputeAndDraw();
   });
 
