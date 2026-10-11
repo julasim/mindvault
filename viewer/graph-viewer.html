@@ -341,8 +341,10 @@ function layoutSphere(nodes, options = {}) {
   const rest = nodes.filter(n => n.id !== rootId || !positions[rootId]);
   const count = rest.length;
 
+  const hasRoot = Boolean(rootId && positions[rootId]);
+
   rest.forEach((n, i) => {
-    if (count === 1) {
+    if (count === 1 && !hasRoot) {
       positions[n.id] = { x3: 0, y3: 0, z3: radius, x: 0, y: 0, scale: 1 };
       return;
     }
@@ -667,8 +669,17 @@ function initViewer() {
   let camera = { x: 0, y: 0, scale: 1 };
   let isPanning = false;
   let panStart = { x: 0, y: 0 };
+  let dragStartClient = { x: 0, y: 0 };
+  let didDrag = false;
 
+  // Die Kamera (Pan/Zoom) ist laut Task 17 nur für die 2D- und
+  // Baum-Ansicht gedacht (centerCameraOnRoot wird nur in deren Zweigen von
+  // recomputePositions aufgerufen). renderSphere zeichnet ohne
+  // Kamera-Transform; screenToWorld muss dort (und in der Matrix-Ansicht)
+  // also eine reine Passthrough-Funktion sein, sonst verschiebt ein in 2D/
+  // Baum zuvor verändertes camera-Objekt Hit-Tests in der Kugel-Ansicht.
   function screenToWorld(screenX, screenY) {
+    if (activeView !== '2d' && activeView !== 'tree') return { x: screenX, y: screenY };
     return { x: (screenX - camera.x) / camera.scale, y: (screenY - camera.y) / camera.scale };
   }
 
@@ -807,6 +818,14 @@ function initViewer() {
     // einen leeren Graphen ohne erkennbaren Grund für den Nutzer.
     selectedNodeId = null;
     hoveredId = null;
+    // Timeline-Intervall des vorigen Vaults stoppen — sonst feuert es
+    // gegen den Slider des neu geladenen Vaults weiter (anderes `max`),
+    // und die Play-Taste bleibt auf "⏸" stehen, obwohl nichts mehr läuft.
+    if (timelineInterval) {
+      clearInterval(timelineInterval);
+      timelineInterval = null;
+      document.getElementById('timeline-play').textContent = '▶';
+    }
     currentFiles = files;
     currentGraph = buildGraph(files);
     renderTagFilters();
@@ -850,11 +869,18 @@ function initViewer() {
     const offsetX = activeView === 'sphere' ? canvas.width / 2 : 0;
     const offsetY = activeView === 'sphere' ? canvas.height / 2 : 0;
     const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-    hoveredId = findNodeAt(positions, world.x, world.y, 10, offsetX, offsetY);
+    hoveredId = findNodeAt(positions, world.x, world.y, 10 / camera.scale, offsetX, offsetY);
     redraw();
   });
 
   canvas.addEventListener('click', (e) => {
+    // Browser lösen nach mousedown+mouseup immer ein click-Event aus, auch
+    // wenn sich die Maus dazwischen bewegt hat (ein Drag ist dem DOM
+    // zufolge trotzdem ein Klick). Ohne diese Prüfung würde das Loslassen
+    // nach einem Pan hier landen und (da unter dem Cursor kein Knoten
+    // liegt) recomputeAndDraw() auslösen, was die Kamera über
+    // centerCameraOnRoot sofort auf die alte Position zurückspringen lässt.
+    if (didDrag) { didDrag = false; return; }
     // Siehe Kommentar oben bei mousemove: Klicks in der Matrix-Ansicht
     // dürfen nicht auf veraltete/falsche positions-Daten einer anderen
     // Ansicht treffen, also bewusst kein findNodeAt-Aufruf hier.
@@ -863,12 +889,13 @@ function initViewer() {
     const offsetX = activeView === 'sphere' ? canvas.width / 2 : 0;
     const offsetY = activeView === 'sphere' ? canvas.height / 2 : 0;
     const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-    const id = findNodeAt(positions, world.x, world.y, 10, offsetX, offsetY);
+    const id = findNodeAt(positions, world.x, world.y, 10 / camera.scale, offsetX, offsetY);
 
     if (!id) {
+      const hadSelection = Boolean(selectedNodeId) || document.getElementById('info-panel').style.display !== 'none';
       document.getElementById('info-panel').style.display = 'none';
       selectedNodeId = null;
-      recomputeAndDraw();
+      if (hadSelection) recomputeAndDraw();
       return;
     }
 
@@ -907,6 +934,7 @@ function initViewer() {
   // der Punkt unter dem Cursor beim Zoomen stehen bleibt.
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
+    if (activeView !== '2d' && activeView !== 'tree') return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
     const before = screenToWorld(mx, my);
@@ -921,14 +949,18 @@ function initViewer() {
   // weiterhin die Auswahl auslösen (siehe click-Handler oben), daher
   // startet das Pannen hier nur, wenn unter dem Mausdruck kein Knoten liegt.
   canvas.addEventListener('mousedown', (e) => {
+    didDrag = false;
+    if (activeView !== '2d' && activeView !== 'tree') return;
     const rect = canvas.getBoundingClientRect();
     const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-    if (findNodeAt(positions, world.x, world.y)) return;
+    if (findNodeAt(positions, world.x, world.y, 10 / camera.scale)) return;
     isPanning = true;
     panStart = { x: e.clientX - camera.x, y: e.clientY - camera.y };
+    dragStartClient = { x: e.clientX, y: e.clientY };
   });
   window.addEventListener('mousemove', (e) => {
     if (!isPanning) return;
+    if (!didDrag && Math.hypot(e.clientX - dragStartClient.x, e.clientY - dragStartClient.y) > 3) didDrag = true;
     camera.x = e.clientX - panStart.x;
     camera.y = e.clientY - panStart.y;
     redraw();

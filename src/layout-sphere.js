@@ -13,8 +13,10 @@ export function layoutSphere(nodes, options = {}) {
   const rest = nodes.filter(n => n.id !== rootId || !positions[rootId]);
   const count = rest.length;
 
+  const hasRoot = Boolean(rootId && positions[rootId]);
+
   rest.forEach((n, i) => {
-    if (count === 1) {
+    if (count === 1 && !hasRoot) {
       positions[n.id] = { x3: 0, y3: 0, z3: radius, x: 0, y: 0, scale: 1 };
       return;
     }

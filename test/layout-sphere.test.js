@@ -29,6 +29,17 @@ test('leerer Knoten-Satz liefert leeres Ergebnis ohne Fehler', () => {
   assert.deepEqual(layoutSphere([]), {});
 });
 
+test('Root + genau ein weiterer Knoten: der verbleibende Knoten liegt nicht auf dem Root (0,0)', () => {
+  const nodes = [{ id: 'root' }, { id: 'only' }];
+  const positions = layoutSphere(nodes, { radius: 100, rootId: 'root' });
+  assert.equal(positions.root.x3, 0);
+  assert.equal(positions.root.y3, 0);
+  assert.equal(positions.root.z3, 0);
+  const dist = Math.sqrt(positions.only.x3 ** 2 + positions.only.y3 ** 2 + positions.only.z3 ** 2);
+  assert.ok(Math.abs(dist - 100) < 0.001);
+  assert.ok(!(positions.only.x === 0 && positions.only.y === 0), 'einziger Rest-Knoten darf nicht auf derselben Projektion wie der Root liegen');
+});
+
 test('rootId wird exakt ins Zentrum gezwungen, restliche Knoten verteilen sich weiter auf der Kugel', () => {
   const nodes = [{ id: 'root' }, { id: 'a' }, { id: 'b' }, { id: 'c' }];
   const positions = layoutSphere(nodes, { radius: 100, rootId: 'root' });
