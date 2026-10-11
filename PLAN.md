@@ -2026,6 +2026,513 @@ git commit -m "docs: README mit Plattform-Adaptern und Lizenztext"
 
 ---
 
+## Task 17: Root-Knoten-Erkennung und Kamera (Zoom/Pan)
+
+**Files:**
+- Create: `apps/mindvault/src/root.js`
+- Test: `apps/mindvault/test/root.test.js`
+- Modify: `apps/mindvault/viewer/render.js` (Kamera-Zustand, Wheel-Zoom,
+  Drag-Pan, `findNodeAt` auf Weltkoordinaten umstellen, Root-Zentrierung
+  in `recomputePositions`)
+- Modify: `apps/mindvault/viewer/build.js` (`./src/root.js` in die
+  `modules`-Liste aufnehmen)
+
+**Kontext:** Das finale Review hat gefehlendes Zoom/Pan als PRD-Lücke
+benannt (PRD Punkt 5: "Zoom/Pan"). Außerdem soll sich der Viewer an
+graphifys bestehendem Baum-/3D-Viewer orientieren: dort wird ein
+Root-Knoten erkannt (`CLAUDE.md`/`AGENTS.md`, sonst höchster Grad) und
+zentriert dargestellt. Hier: `MEMORY.md`/`CLAUDE.md` bevorzugt, sonst
+der Knoten mit den meisten eingehenden Links — rein als Kamera-Zentrierung,
+ohne die bestehenden, bereits getesteten Layout-Algorithmen anzufassen.
+
+**Interfaces:**
+- Produces: `detectRootNode(nodes) -> {id, incoming, ...} | null`
+- Produces (render.js, nicht exportiert): Kamera-Zustand `{x, y, scale}`,
+  angewendet via `ctx.translate`/`ctx.scale` vor jedem Zeichnen; `findNodeAt`
+  rechnet Bildschirm- in Weltkoordinaten um, bevor es mit `positions`
+  vergleicht.
+
+- [ ] **Step 1: Fehlschlagende Tests schreiben**
+
+```javascript
+// test/root.test.js
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { detectRootNode } from '../src/root.js';
+
+test('bevorzugt MEMORY/CLAUDE als Root, auch wenn ein anderer Knoten mehr eingehende Links hat', () => {
+  const nodes = [
+    { id: 'MEMORY', incoming: 1 },
+    { id: 'projekte/sehr-verlinkt', incoming: 10 },
+  ];
+  assert.equal(detectRootNode(nodes).id, 'MEMORY');
+});
+
+test('CLAUDE als Root erkannt, Groß-/Kleinschreibung egal', () => {
+  const nodes = [{ id: 'claude', incoming: 0 }, { id: 'andere', incoming: 5 }];
+  assert.equal(detectRootNode(nodes).id, 'claude');
+});
+
+test('ohne Hub-Datei gewinnt der Knoten mit den meisten eingehenden Links', () => {
+  const nodes = [{ id: 'a', incoming: 1 }, { id: 'b', incoming: 3 }];
+  assert.equal(detectRootNode(nodes).id, 'b');
+});
+
+test('leerer Knoten-Satz liefert null', () => {
+  assert.equal(detectRootNode([]), null);
+});
+```
+
+- [ ] **Step 2: Tests ausführen, Fehlschlag bestätigen**
+
+Run: `node --test test/root.test.js`
+Expected: FAIL mit "Cannot find module '../src/root.js'"
+
+- [ ] **Step 3: `detectRootNode` implementieren**
+
+```javascript
+// src/root.js
+export function detectRootNode(nodes) {
+  if (nodes.length === 0) return null;
+  const isHub = (id) => /(^|\/)(memory|claude)$/i.test(id);
+  const hubs = nodes.filter(n => isHub(n.id));
+  const pool = hubs.length > 0 ? hubs : nodes;
+  return pool.reduce((best, n) => (n.incoming ?? 0) > (best.incoming ?? 0) ? n : best, pool[0]);
+}
+```
+
+- [ ] **Step 4: Tests ausführen, Erfolg bestätigen**
+
+Run: `node --test test/root.test.js`
+Expected: alle 4 Tests PASS
+
+- [ ] **Step 5: `detectRootNode` ins Build einhängen**
+
+```javascript
+// viewer/build.js — in der modules-Liste, vor '../src/filters.js' ergänzen:
+  '../src/root.js',
+```
+
+- [ ] **Step 6: Kamera (Zoom/Pan) in render.js einbauen**
+
+Lies zuerst den aktuellen Inhalt von `viewer/render.js`, um die exakten
+Namen von `initViewer`, `recomputePositions`, `redraw`, `findNodeAt` und
+der bestehenden Event-Listener zu bestätigen (mehrere Tasks haben die
+Datei seitdem verändert). Ergänze dann:
+
+```javascript
+// viewer/render.js — in initViewer(), neue Kamera-Variablen vor recomputePositions():
+  let camera = { x: 0, y: 0, scale: 1 };
+  let isPanning = false;
+  let panStart = { x: 0, y: 0 };
+
+  function screenToWorld(screenX, screenY) {
+    return { x: (screenX - camera.x) / camera.scale, y: (screenY - camera.y) / camera.scale };
+  }
+
+  function centerCameraOnRoot(filteredNodes) {
+    const root = detectRootNode(filteredNodes);
+    if (!root || !positions[root.id]) { camera = { x: 0, y: 0, scale: 1 }; return; }
+    camera = {
+      x: canvas.width / 2 - positions[root.id].x,
+      y: canvas.height / 2 - positions[root.id].y,
+      scale: 1,
+    };
+  }
+```
+
+`findNodeAt`-Aufrufe (im `mousemove`- und `click`-Handler) müssen die
+Bildschirmkoordinaten zuerst durch `screenToWorld(...)` schicken, bevor
+sie an `findNodeAt` übergeben werden — sonst stimmt das Hit-Testing nach
+einem Zoom/Pan nicht mehr. `recomputePositions()` ruft nach dem Setzen
+von `positions` (für die Zweige `2d`/`tree`) zusätzlich
+`centerCameraOnRoot(filtered.nodes)` auf, damit der Root-Knoten nach
+jeder Neuberechnung zentriert erscheint (Zoom/Pan des Nutzers wird dabei
+bewusst zurückgesetzt — einfacher und für dieses Produkt ausreichend, da
+Neuberechnungen durch Filter-/Vault-Wechsel ohnehin selten sind).
+
+Alle Zeichenfunktionen (`renderObsidian2D`, `renderTree`) wenden die
+Kamera vor dem Zeichnen an und setzen sie danach zurück:
+
+```javascript
+// jeweils am Anfang der Funktion, nach ctx.clearRect/fillRect:
+  ctx.save();
+  ctx.translate(camera.x, camera.y);
+  ctx.scale(camera.scale, camera.scale);
+// … bestehender Zeichen-Code unverändert …
+// am Ende der Funktion, vor der schließenden Klammer:
+  ctx.restore();
+```
+
+(Die Kugel- und Matrix-Ansicht bekommen in Task 19 ihre eigene
+Root-Behandlung bzw. bleiben wie bisher ohne Kamera — Matrix hat kein
+sinnvolles "Zoomen" einzelner Zellen, das ist bewusst ausgenommen.)
+
+Wheel-Zoom und Drag-Pan auf dem Canvas:
+
+```javascript
+// viewer/render.js — in initViewer(), neue Listener ergänzen:
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const before = screenToWorld(mx, my);
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    camera.scale = Math.min(Math.max(camera.scale * factor, 0.2), 5);
+    camera.x = mx - before.x * camera.scale;
+    camera.y = my - before.y * camera.scale;
+    redraw();
+  }, { passive: false });
+
+  canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    if (findNodeAt(positions, world.x, world.y)) return; // Klick auf Knoten, nicht pannen
+    isPanning = true;
+    panStart = { x: e.clientX - camera.x, y: e.clientY - camera.y };
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    camera.x = e.clientX - panStart.x;
+    camera.y = e.clientY - panStart.y;
+    redraw();
+  });
+  window.addEventListener('mouseup', () => { isPanning = false; });
+```
+
+Der bestehende `mousemove`-Listener auf dem Canvas (Hover) muss seine
+Koordinaten ebenfalls durch `screenToWorld(...)` schicken, bevor er
+`findNodeAt` aufruft — sonst stimmt Hover nach einem Zoom/Pan nicht mehr.
+
+- [ ] **Step 7: Build ausführen und manuell prüfen**
+
+Run: `node viewer/build.js`
+Manuelle Prüfung (Claude_Browser-Tools): `viewer/graph-viewer.html`
+öffnen, Mausrad über dem Canvas drehen (Zoom darf keinen Fehler werfen,
+auch ohne geladenen Vault), Drag auf leerer Canvas-Fläche (Pan darf
+keinen Fehler werfen). Konsole bleibt fehlerfrei.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add src/root.js test/root.test.js viewer/render.js viewer/build.js viewer/graph-viewer.html
+git commit -m "feat: Root-Knoten-Zentrierung und Zoom/Pan für Obsidian-2D und Baum"
+```
+
+---
+
+## Task 18: Klick-Info-Panel und eigenständiger Lokaler-Graph-Umschalter
+
+**Files:**
+- Modify: `apps/mindvault/viewer/shell.html` (Info-Panel, Lokaler-Graph-
+  Checkbox, Tiefen-Regler ergänzen)
+- Modify: `apps/mindvault/viewer/render.js` (Klick zeigt Dateiinhalt statt
+  automatisch in den lokalen Graphen zu springen; Lokaler Graph wird zu
+  einem expliziten, vom Nutzer gesetzten Umschalter mit Tiefen-Regler)
+
+**Kontext:** Die PRD nennt zwei getrennte Interaktionen ("Klick öffnet/
+zeigt den Inhalt der Datei" und "Lokaler Graph: … mit Tiefen-Regler"),
+die bisher zu einer einzigen Klick-Aktion verschmolzen waren (jeder Klick
+sprang direkt in den lokalen Graphen, ohne Tiefen-Regler-UI, ohne
+Inhalts-Anzeige). Das korrigiert das.
+
+- [ ] **Step 1: Info-Panel und Lokaler-Graph-Steuerung im Shell ergänzen**
+
+```html
+<!-- viewer/shell.html — nach dem #search-results-div ergänzen: -->
+    <div id="info-panel" style="display:none;">
+      <button id="info-panel-close">×</button>
+      <h3 id="info-panel-title"></h3>
+      <pre id="info-panel-content"></pre>
+    </div>
+```
+
+```html
+<!-- viewer/shell.html — in der Werkzeugleiste, nach dem Zeitleiste-Label ergänzen: -->
+    <label><input type="checkbox" id="local-graph-toggle"> Lokaler Graph</label>
+    <input type="range" id="local-depth-slider" min="1" max="5" value="1">
+```
+
+Passende, zum restlichen Sima-Design konsistente CSS-Regeln für
+`#info-panel` in den bestehenden `<style>`-Block ergänzen: helles Panel,
+`border: 1px solid var(--gray-200)`, `border-radius: 8px`, `padding: 16px`,
+positioniert ähnlich wie `#search-results` (z. B. rechts statt links),
+`#info-panel-content` mit `white-space: pre-wrap`, `font-family:
+var(--font-sans)`, `font-size: 13px`, `color: var(--gray-700)`.
+
+- [ ] **Step 2: Klick-Verhalten in render.js ändern**
+
+Lies zuerst den aktuellen Stand von `viewer/render.js` (nach Task 17
+verändert). Ersetze den bestehenden `canvas.addEventListener('click', …)`
+so, dass er zuerst prüft, ob ein Knoten getroffen wurde (über
+`screenToWorld` + `findNodeAt`, wie in Task 17 etabliert):
+
+```javascript
+// viewer/render.js — click-Handler ersetzen durch:
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const id = activeView === 'matrix' ? null : findNodeAt(positions, world.x, world.y);
+
+    if (!id) {
+      document.getElementById('info-panel').style.display = 'none';
+      selectedNodeId = null;
+      recomputeAndDraw();
+      return;
+    }
+
+    showFileContent(id);
+    if (document.getElementById('local-graph-toggle').checked) {
+      selectedNodeId = id;
+      recomputeAndDraw();
+    }
+  });
+
+  function showFileContent(id) {
+    let fileContent = null;
+    for (const [filename, content] of currentFiles) {
+      if (filename.replace(/\.md$/i, '') === id) { fileContent = content; break; }
+    }
+    document.getElementById('info-panel-title').textContent = id;
+    document.getElementById('info-panel-content').textContent = fileContent ?? '(Datei nicht gefunden)';
+    document.getElementById('info-panel').style.display = 'block';
+  }
+
+  document.getElementById('info-panel-close').addEventListener('click', () => {
+    document.getElementById('info-panel').style.display = 'none';
+  });
+
+  document.getElementById('local-graph-toggle').addEventListener('change', (e) => {
+    if (!e.target.checked) selectedNodeId = null;
+    recomputeAndDraw();
+  });
+
+  document.getElementById('local-depth-slider').addEventListener('input', (e) => {
+    localDepth = Number(e.target.value);
+    if (selectedNodeId) recomputeAndDraw();
+  });
+```
+
+Die bestehende `localGraph(...)`-Anwendung in `recomputePositions()`
+bleibt unverändert — sie greift weiterhin nur, wenn `selectedNodeId`
+gesetzt ist, was jetzt ausschließlich passiert, wenn der
+"Lokaler Graph"-Haken aktiv UND ein Knoten angeklickt wurde.
+
+- [ ] **Step 3: Build ausführen und manuell prüfen**
+
+Run: `node viewer/build.js`
+Manuelle Prüfung (Claude_Browser-Tools): `viewer/graph-viewer.html`
+öffnen, auf eine leere Canvas-Fläche klicken (Info-Panel bleibt
+verborgen, kein Fehler), Schließen-Button im (noch verborgenen)
+Info-Panel anklicken (kein Fehler), Tiefen-Regler bewegen ohne
+ausgewählten Knoten (kein Fehler, da die `if (selectedNodeId)`-Prüfung
+das abfängt).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add viewer/shell.html viewer/render.js viewer/graph-viewer.html
+git commit -m "feat: Klick zeigt Dateiinhalt, lokaler Graph wird eigener Umschalter mit Tiefen-Regler"
+```
+
+---
+
+## Task 19: 3D-Kugel-Kanten/Labels, Zeitleiste-Wiedergabe, Tag-Legende mit Zählern
+
+**Files:**
+- Modify: `apps/mindvault/src/layout-sphere.js` (optionaler `rootId`-
+  Parameter, der einen Knoten ins Zentrum zwingt)
+- Modify: `apps/mindvault/test/layout-sphere.test.js` (Test für den neuen
+  Parameter ergänzen)
+- Modify: `apps/mindvault/viewer/render.js` (`renderSphere` zeichnet
+  Kanten/Labels; Zeitleiste-Wiedergabe-Button; Tag-Legende mit Zählern)
+- Modify: `apps/mindvault/viewer/shell.html` (Play-Button für die
+  Zeitleiste ergänzen)
+
+**Kontext:** Das finale Review hat bemängelt, dass die 3D-Kugel weder
+Kanten noch Beschriftungen zeichnet. Zusätzlich, angelehnt an graphifys
+Baum-/3D-Viewer: der Root-Knoten soll im Zentrum der Kugel sitzen statt
+irgendwo auf der Oberfläche, die Zeitleiste soll abspielbar sein statt
+nur ein statischer Regler, und die Tag-Checkboxen bekommen Zähler (wie
+graphifys Community-Legende mit Knotenanzahl).
+
+- [ ] **Step 1: Fehlschlagenden Test für `rootId` in layoutSphere schreiben**
+
+```javascript
+// test/layout-sphere.test.js — neuen Test ergänzen:
+test('rootId wird exakt ins Zentrum gezwungen, restliche Knoten verteilen sich weiter auf der Kugel', () => {
+  const nodes = [{ id: 'root' }, { id: 'a' }, { id: 'b' }, { id: 'c' }];
+  const positions = layoutSphere(nodes, { radius: 100, rootId: 'root' });
+  assert.equal(positions.root.x3, 0);
+  assert.equal(positions.root.y3, 0);
+  assert.equal(positions.root.z3, 0);
+  for (const id of ['a', 'b', 'c']) {
+    const p = positions[id];
+    const dist = Math.sqrt(p.x3 ** 2 + p.y3 ** 2 + p.z3 ** 2);
+    assert.ok(Math.abs(dist - 100) < 0.001);
+  }
+});
+```
+
+- [ ] **Step 2: Test ausführen, Fehlschlag bestätigen**
+
+Run: `node --test test/layout-sphere.test.js`
+Expected: FAIL (bestehende Funktion kennt `rootId` noch nicht, der
+Root-Knoten landet stattdessen auf der Kugeloberfläche wie jeder andere)
+
+- [ ] **Step 3: `layoutSphere` um `rootId` erweitern**
+
+```javascript
+// src/layout-sphere.js — layoutSphere ersetzen durch:
+export function layoutSphere(nodes, options = {}) {
+  if (nodes.length === 0) return {};
+
+  const radius = options.radius ?? 200;
+  const rotationY = options.rotationY ?? 0;
+  const rootId = options.rootId ?? null;
+  const positions = {};
+
+  if (rootId && nodes.some(n => n.id === rootId)) {
+    positions[rootId] = { x3: 0, y3: 0, z3: 0, x: 0, y: 0, scale: 1.4 };
+  }
+
+  const rest = nodes.filter(n => n.id !== rootId || !positions[rootId]);
+  const count = rest.length;
+
+  rest.forEach((n, i) => {
+    if (count === 1) {
+      positions[n.id] = { x3: 0, y3: 0, z3: radius, x: 0, y: 0, scale: 1 };
+      return;
+    }
+    const phi = Math.acos(1 - (2 * (i + 0.5)) / count);
+    const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
+
+    const x = radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.cos(phi);
+    const z = radius * Math.sin(phi) * Math.sin(theta);
+
+    const cosR = Math.cos(rotationY), sinR = Math.sin(rotationY);
+    const xr = x * cosR + z * sinR;
+    const zr = z * cosR - x * sinR;
+
+    const perspective = 600 / (600 + zr);
+    positions[n.id] = {
+      x3: xr, y3: y, z3: zr,
+      x: xr * perspective,
+      y: y * perspective,
+      scale: perspective,
+    };
+  });
+  return positions;
+}
+```
+
+- [ ] **Step 4: Test ausführen, Erfolg bestätigen**
+
+Run: `node --test test/layout-sphere.test.js`
+Expected: alle Tests PASS (der neue und die bestehenden vier — ohne
+`rootId` verhält sich die Funktion exakt wie zuvor)
+
+- [ ] **Step 5: Kanten und Labels in `renderSphere` ergänzen, Root an `layoutSphere` übergeben**
+
+Lies zuerst den aktuellen Stand von `viewer/render.js`. Ergänze in
+`renderSphere` vor der Knoten-Schleife das Zeichnen der Kanten (gleiche
+Perspektiv-Projektion wie die Knoten, Linie zwischen den projizierten
+Positionen) und nach jedem Knoten eine Beschriftung:
+
+```javascript
+// viewer/render.js — renderSphere: vor der Knoten-Schleife ergänzen:
+  ctx.strokeStyle = '#D1D5DB';
+  for (const e of graph.edges) {
+    const s = positions[e.source], t = positions[e.target];
+    if (!s || !t) continue;
+    ctx.beginPath();
+    ctx.moveTo(cx + s.x, cy + s.y);
+    ctx.lineTo(cx + t.x, cy + t.y);
+    ctx.stroke();
+  }
+
+// und in der bestehenden Knoten-Schleife, nach ctx.fill(); ctx.globalAlpha = 1;:
+    ctx.fillStyle = '#374151';
+    ctx.font = '11px system-ui';
+    ctx.fillText(n.id, cx + p.x + radius + 2, cy + p.y + 3);
+```
+
+In `recomputePositions()`, im `sphere`-Zweig, `detectRootNode` (aus
+Task 17) aufrufen und das Ergebnis als `rootId` übergeben:
+
+```javascript
+// viewer/render.js — im sphere-Zweig von recomputePositions():
+      const root = detectRootNode(filtered.nodes);
+      positions = layoutSphere(filtered.nodes, { radius: 200, rotationY: Date.now() / 4000, rootId: root?.id ?? null });
+```
+
+- [ ] **Step 6: Zeitleiste-Wiedergabe ergänzen**
+
+```html
+<!-- viewer/shell.html — vor #timeline-slider ergänzen: -->
+    <button id="timeline-play">▶</button>
+```
+
+```javascript
+// viewer/render.js — setupTimeline erweitern um einen Play/Pause-Button:
+  let timelineInterval = null;
+  document.getElementById('timeline-play').addEventListener('click', (e) => {
+    const slider = document.getElementById('timeline-slider');
+    if (timelineInterval) {
+      clearInterval(timelineInterval);
+      timelineInterval = null;
+      e.target.textContent = '▶';
+      return;
+    }
+    e.target.textContent = '⏸';
+    timelineInterval = setInterval(() => {
+      const next = Number(slider.value) + 1;
+      if (next > Number(slider.max)) {
+        clearInterval(timelineInterval);
+        timelineInterval = null;
+        document.getElementById('timeline-play').textContent = '▶';
+        return;
+      }
+      slider.value = String(next);
+      slider.oninput();
+    }, 800);
+  });
+```
+
+(Bewusst keine Filterung des Graphen nach Entstehungsdatum — das würde
+`File.lastModified` pro Datei erfordern, was `currentFiles` aktuell nicht
+speichert. Die Wiedergabe spielt die Log-Chronologie zeitgesteuert ab,
+ohne den Graphen selbst zu verändern. Das ist eine bewusste
+Abgrenzung, kein Bug.)
+
+- [ ] **Step 7: Tag-Legende mit Zählern**
+
+```javascript
+// viewer/render.js — renderTagFilters: die Zeile
+//   label.append(checkbox, document.createTextNode('#' + tag));
+// ersetzen durch:
+      const count = currentGraph.nodes.filter(n => n.tags.includes(tag)).length;
+      label.append(checkbox, document.createTextNode(`#${tag} (${count})`));
+```
+
+- [ ] **Step 8: Build ausführen und manuell prüfen**
+
+Run: `node viewer/build.js`
+Manuelle Prüfung (Claude_Browser-Tools): `viewer/graph-viewer.html`
+öffnen, zur 3D-Kugel-Ansicht wechseln (leerer Graph, kein Fehler), auf
+den Play-Button der Zeitleiste klicken und wieder pausieren (kein
+Fehler, auch ohne geladene Daten — `slider.max` ist dann `0`).
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add src/layout-sphere.js test/layout-sphere.test.js viewer/render.js viewer/shell.html viewer/graph-viewer.html
+git commit -m "feat: Kugel-Kanten/Labels mit zentriertem Root, Zeitleiste-Wiedergabe, Tag-Zähler"
+```
+
+---
+
 ## Nacharbeit (kein eigener Task mit Code)
 
 Nach Abschluss aller Tasks: Projekt-`CLAUDE.md` für `apps/mindvault/`
