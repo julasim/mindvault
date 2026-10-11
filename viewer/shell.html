@@ -5,13 +5,87 @@
 <meta charset="utf-8">
 <title>Vault Graph Viewer</title>
 <style>
-  body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e1e; color: #eee; }
-  #toolbar { display: flex; gap: 8px; padding: 8px; background: #2a2a2a; flex-wrap: wrap; align-items: center; }
-  #toolbar button, #toolbar input { font: inherit; padding: 4px 8px; }
+  :root {
+    --ink: #0A0A0A;
+    --paper: #FFFFFF;
+    --gray-50: #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-700: #374151;
+    --gray-900: #111827;
+    --font-sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--gray-700);
+    background: var(--paper);
+  }
+  #toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #FAFAFA;
+    border-bottom: 1px solid var(--gray-200);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  #toolbar button {
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--gray-200);
+    background: var(--paper);
+    color: var(--gray-700);
+    cursor: pointer;
+    transition: background 180ms ease, border-color 180ms ease;
+  }
+  #toolbar button:hover {
+    background: var(--gray-50);
+    border-color: var(--gray-300);
+  }
+  #toolbar input[type="text"] {
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--gray-200);
+    color: var(--gray-700);
+  }
+  #toolbar input[type="text"]:focus {
+    outline: none;
+    border-color: var(--gray-400);
+  }
+  #toolbar label {
+    font-size: 13px;
+    color: var(--gray-500);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
   #canvas-wrap { position: relative; }
-  canvas { display: block; background: #1e1e1e; }
+  canvas { display: block; background: var(--paper); }
   #tag-filters { display: flex; gap: 4px; flex-wrap: wrap; }
-  #search-results { position: absolute; top: 48px; left: 8px; background: #2a2a2a; max-height: 300px; overflow: auto; padding: 8px; display: none; }
+  #search-results {
+    position: absolute;
+    top: 48px;
+    left: 8px;
+    background: var(--paper);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    max-height: 300px;
+    overflow: auto;
+    padding: 12px;
+    font-size: 13px;
+    color: var(--gray-700);
+    display: none;
+  }
 </style>
 </head>
 <body>

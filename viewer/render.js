@@ -1,5 +1,5 @@
 // viewer/render.js
-const TAG_COLORS = ['#e06c75', '#61afef', '#98c379', '#e5c07b', '#c678dd', '#56b6c2'];
+const TAG_COLORS = ['#6B7280', '#B45309', '#15803D', '#B91C1C', '#2563EB', '#4B5563'];
 
 function colorForTag(tag) {
   if (!tag) return '#888';
@@ -11,6 +11,8 @@ function colorForTag(tag) {
 function renderObsidian2D(ctx, graph, positions, options = {}) {
   const { hoveredId = null, selectedId = null } = options;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
   ctx.strokeStyle = '#555';
   for (const e of graph.edges) {
@@ -37,7 +39,7 @@ function renderObsidian2D(ctx, graph, positions, options = {}) {
     }
     ctx.fill();
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#ddd';
+    ctx.fillStyle = '#374151';
     ctx.font = '11px system-ui';
     ctx.fillText(n.id, p.x + radius + 2, p.y + 3);
   }
@@ -45,6 +47,8 @@ function renderObsidian2D(ctx, graph, positions, options = {}) {
 
 function renderTree(ctx, graph, positions) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.strokeStyle = '#555';
   for (const e of graph.edges) {
     const s = positions[e.source], t = positions[e.target];
@@ -56,13 +60,15 @@ function renderTree(ctx, graph, positions) {
     if (!p) continue;
     ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
     ctx.fillStyle = colorForTag(n.tags?.[0]); ctx.fill();
-    ctx.fillStyle = '#ddd'; ctx.font = '11px system-ui';
+    ctx.fillStyle = '#374151'; ctx.font = '11px system-ui';
     ctx.fillText(n.id, p.x + 10, p.y + 3);
   }
 }
 
 function renderSphere(ctx, graph, positions) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   const cx = ctx.canvas.width / 2, cy = ctx.canvas.height / 2;
   const sorted = [...graph.nodes].sort((a, b) => (positions[a.id]?.z3 ?? 0) - (positions[b.id]?.z3 ?? 0));
   for (const n of sorted) {
@@ -80,6 +86,8 @@ function renderSphere(ctx, graph, positions) {
 
 function renderMatrix(ctx, orderedIds, matrix) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   const size = orderedIds.length;
   const cell = Math.max(4, Math.min(20, Math.floor(600 / Math.max(size, 1))));
   for (let i = 0; i < size; i++) {
@@ -89,7 +97,7 @@ function renderMatrix(ctx, orderedIds, matrix) {
       ctx.fillRect(40 + j * cell, 40 + i * cell, cell - 1, cell - 1);
     }
   }
-  ctx.fillStyle = '#ddd'; ctx.font = '10px system-ui';
+  ctx.fillStyle = '#374151'; ctx.font = '10px system-ui';
   orderedIds.forEach((id, i) => ctx.fillText(id.slice(0, 5), 2, 40 + i * cell + cell / 1.5));
 }
 
