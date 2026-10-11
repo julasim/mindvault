@@ -10,6 +10,7 @@ const modules = [
   '../src/filters.js',
   '../src/timeline.js',
   './loader.js',
+  './render.js',
 ];
 
 const combined = modules
