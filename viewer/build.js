@@ -7,6 +7,7 @@ const modules = [
   '../src/layout-tree.js',
   '../src/layout-sphere.js',
   '../src/layout-matrix.js',
+  '../src/root.js',
   '../src/filters.js',
   '../src/timeline.js',
   './loader.js',

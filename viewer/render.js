@@ -9,10 +9,14 @@ function colorForTag(tag) {
 }
 
 function renderObsidian2D(ctx, graph, positions, options = {}) {
-  const { hoveredId = null, selectedId = null } = options;
+  const { hoveredId = null, selectedId = null, camera = { x: 0, y: 0, scale: 1 } } = options;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+  ctx.save();
+  ctx.translate(camera.x, camera.y);
+  ctx.scale(camera.scale, camera.scale);
 
   ctx.strokeStyle = '#555';
   for (const e of graph.edges) {
@@ -43,12 +47,20 @@ function renderObsidian2D(ctx, graph, positions, options = {}) {
     ctx.font = '11px system-ui';
     ctx.fillText(n.id, p.x + radius + 2, p.y + 3);
   }
+
+  ctx.restore();
 }
 
-function renderTree(ctx, graph, positions) {
+function renderTree(ctx, graph, positions, options = {}) {
+  const { camera = { x: 0, y: 0, scale: 1 } } = options;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+  ctx.save();
+  ctx.translate(camera.x, camera.y);
+  ctx.scale(camera.scale, camera.scale);
+
   ctx.strokeStyle = '#555';
   for (const e of graph.edges) {
     const s = positions[e.source], t = positions[e.target];
@@ -63,6 +75,8 @@ function renderTree(ctx, graph, positions) {
     ctx.fillStyle = '#374151'; ctx.font = '11px system-ui';
     ctx.fillText(n.id, p.x + 10, p.y + 3);
   }
+
+  ctx.restore();
 }
 
 function renderSphere(ctx, graph, positions) {
@@ -144,6 +158,23 @@ function initViewer() {
   let currentFiltered = { nodes: [], edges: [] };
   let matrixOrderedIds = [];
   let matrixData = [];
+  let camera = { x: 0, y: 0, scale: 1 };
+  let isPanning = false;
+  let panStart = { x: 0, y: 0 };
+
+  function screenToWorld(screenX, screenY) {
+    return { x: (screenX - camera.x) / camera.scale, y: (screenY - camera.y) / camera.scale };
+  }
+
+  function centerCameraOnRoot(filteredNodes) {
+    const root = detectRootNode(filteredNodes);
+    if (!root || !positions[root.id]) { camera = { x: 0, y: 0, scale: 1 }; return; }
+    camera = {
+      x: canvas.width / 2 - positions[root.id].x,
+      y: canvas.height / 2 - positions[root.id].y,
+      scale: 1,
+    };
+  }
 
   // Layout-Neuberechnung ist teuer (layoutForceDirected simuliert bei
   // jedem Aufruf von Grund auf neu). Sie läuft daher nur, wenn sich etwas
@@ -158,8 +189,10 @@ function initViewer() {
 
     if (activeView === '2d') {
       positions = layoutForceDirected(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, height: canvas.height, iterations: 150 });
+      centerCameraOnRoot(currentFiltered.nodes);
     } else if (activeView === 'tree') {
       positions = layoutTree(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, levelHeight: 90 });
+      centerCameraOnRoot(currentFiltered.nodes);
     } else if (activeView === 'sphere') {
       positions = layoutSphere(currentFiltered.nodes, { radius: 200, rotationY: Date.now() / 4000 });
     } else if (activeView === 'matrix') {
@@ -170,9 +203,9 @@ function initViewer() {
 
   function redraw() {
     if (activeView === '2d') {
-      renderObsidian2D(ctx, currentFiltered, positions, { hoveredId, selectedId: selectedNodeId });
+      renderObsidian2D(ctx, currentFiltered, positions, { hoveredId, selectedId: selectedNodeId, camera });
     } else if (activeView === 'tree') {
-      renderTree(ctx, currentFiltered, positions);
+      renderTree(ctx, currentFiltered, positions, { camera });
     } else if (activeView === 'sphere') {
       renderSphere(ctx, currentFiltered, positions);
     } else if (activeView === 'matrix') {
@@ -284,7 +317,8 @@ function initViewer() {
     const rect = canvas.getBoundingClientRect();
     const offsetX = activeView === 'sphere' ? canvas.width / 2 : 0;
     const offsetY = activeView === 'sphere' ? canvas.height / 2 : 0;
-    hoveredId = findNodeAt(positions, e.clientX - rect.left, e.clientY - rect.top, 10, offsetX, offsetY);
+    const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    hoveredId = findNodeAt(positions, world.x, world.y, 10, offsetX, offsetY);
     redraw();
   });
 
@@ -296,10 +330,43 @@ function initViewer() {
     const rect = canvas.getBoundingClientRect();
     const offsetX = activeView === 'sphere' ? canvas.width / 2 : 0;
     const offsetY = activeView === 'sphere' ? canvas.height / 2 : 0;
-    const id = findNodeAt(positions, e.clientX - rect.left, e.clientY - rect.top, 10, offsetX, offsetY);
+    const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const id = findNodeAt(positions, world.x, world.y, 10, offsetX, offsetY);
     selectedNodeId = id;
     recomputeAndDraw();
   });
+
+  // Wheel-Zoom: skaliert um die Mausposition (nicht um den Ursprung), damit
+  // der Punkt unter dem Cursor beim Zoomen stehen bleibt.
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const before = screenToWorld(mx, my);
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    camera.scale = Math.min(Math.max(camera.scale * factor, 0.2), 5);
+    camera.x = mx - before.x * camera.scale;
+    camera.y = my - before.y * camera.scale;
+    redraw();
+  }, { passive: false });
+
+  // Drag-Pan auf leerer Canvas-Fläche. Ein Klick auf einen Knoten soll
+  // weiterhin die Auswahl auslösen (siehe click-Handler oben), daher
+  // startet das Pannen hier nur, wenn unter dem Mausdruck kein Knoten liegt.
+  canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    if (findNodeAt(positions, world.x, world.y)) return;
+    isPanning = true;
+    panStart = { x: e.clientX - camera.x, y: e.clientY - camera.y };
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    camera.x = e.clientX - panStart.x;
+    camera.y = e.clientY - panStart.y;
+    redraw();
+  });
+  window.addEventListener('mouseup', () => { isPanning = false; });
 
   document.querySelectorAll('[data-view]').forEach(btn => {
     btn.addEventListener('click', () => { activeView = btn.dataset.view; recomputeAndDraw(); });
