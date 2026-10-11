@@ -8,9 +8,24 @@
 
 ## Einrichtung je Plattform
 
-**Claude Code:** Lege eine `.claude/settings.json` mit einem
-`SessionStart`-Hook an, der den Inhalt von `MEMORY.md` automatisch in den
-Kontext lädt. Vorlage liegt in `vault-template/CLAUDE.md`.
+**Claude Code:** Lege im Vault-Ordner eine `.claude/settings.json` mit folgendem Inhalt an, damit Claude Code `MEMORY.md` bei jedem Sitzungsstart automatisch lädt:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat MEMORY.md 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
 **ChatGPT (mit Dateizugriff/Projekte):** Lade `MEMORY.md` und die
 relevanten `projekte/*.md`-Dateien als Projektwissen hoch. Füge den
@@ -36,9 +51,10 @@ Siehe `vault-template/CLAUDE.md` — Tags (`#tag`), Fälligkeiten
 ## Graph-Viewer
 
 `viewer/graph-viewer.html` ist eine einzelne, abhängigkeitsfreie Datei.
-Beim Öffnen wählst du deinen Vault-Ordner aus (Chrome/Edge: direkte
-Ordnerauswahl; Firefox/Safari: Ordner per Drag&Drop in das Auswahlfeld
-ziehen). Vier Ansichten stehen über die Werkzeugleiste zur Verfügung:
+Beim Öffnen wählst du deinen Vault-Ordner über den Button „Vault-Ordner
+öffnen" aus (Chrome/Edge: direkte Ordnerauswahl; Firefox/Safari: derselbe
+Button öffnet stattdessen einen nativen Ordner-Auswahldialog des
+Betriebssystems). Vier Ansichten stehen über die Werkzeugleiste zur Verfügung:
 Obsidian-2D, Baum, 3D-Kugel, Matrix. Dazu Suche, Tag-Filter, lokaler Graph
 (Klick auf einen Knoten), Zeitleiste und PNG-Export.
 
