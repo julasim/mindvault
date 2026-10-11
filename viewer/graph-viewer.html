@@ -403,17 +403,35 @@ function initViewer() {
   let localDepth = 1;
   let hoveredId = null;
   let positions = {};
+  let currentFiltered = { nodes: [], edges: [] };
 
-  function recomputeAndDraw() {
-    const filtered = selectedNodeId
+  // Layout-Neuberechnung ist teuer (layoutForceDirected simuliert bei
+  // jedem Aufruf von Grund auf neu). Sie läuft daher nur, wenn sich etwas
+  // Layout-Relevantes ändert (Vault geladen, Filter, aktive Ansicht,
+  // Auswahl) — NICHT bei jeder Mausbewegung. `redraw()` ist der billige
+  // Pfad: zeichnet mit den bereits vorhandenen `positions` neu, z. B. nur
+  // um den Hover-Zustand zu aktualisieren.
+  function recomputePositions() {
+    currentFiltered = selectedNodeId
       ? localGraph(applyFilters(currentGraph, filters), selectedNodeId, localDepth)
       : applyFilters(currentGraph, filters);
 
     if (activeView === '2d') {
-      positions = layoutForceDirected(filtered.nodes, filtered.edges, { width: canvas.width, height: canvas.height, iterations: 150 });
-      renderObsidian2D(ctx, filtered, positions, { hoveredId, selectedId: selectedNodeId });
+      positions = layoutForceDirected(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, height: canvas.height, iterations: 150 });
     }
     // Baum/3D-Kugel/Matrix-Zweige werden in Task 11 ergänzt.
+  }
+
+  function redraw() {
+    if (activeView === '2d') {
+      renderObsidian2D(ctx, currentFiltered, positions, { hoveredId, selectedId: selectedNodeId });
+    }
+    // Baum/3D-Kugel/Matrix-Zweige werden in Task 11 ergänzt.
+  }
+
+  function recomputeAndDraw() {
+    recomputePositions();
+    redraw();
   }
 
   async function loadFiles(files) {
@@ -447,7 +465,7 @@ function initViewer() {
   canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
     hoveredId = findNodeAt(positions, e.clientX - rect.left, e.clientY - rect.top);
-    recomputeAndDraw();
+    redraw();
   });
 
   canvas.addEventListener('click', (e) => {
