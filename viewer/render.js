@@ -32,7 +32,7 @@ function renderObsidian2D(ctx, graph, positions, options = {}) {
     ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
     ctx.fillStyle = colorForTag(n.tags?.[0]);
     if (n.id === hoveredId || n.id === selectedId) {
-      ctx.shadowColor = '#fff';
+      ctx.shadowColor = '#111827';
       ctx.shadowBlur = 12;
     } else {
       ctx.shadowBlur = 0;
@@ -93,7 +93,7 @@ function renderMatrix(ctx, orderedIds, matrix) {
   for (let i = 0; i < size; i++) {
     for (let j = 0; j < size; j++) {
       if (!matrix[i][j]) continue;
-      ctx.fillStyle = '#61afef';
+      ctx.fillStyle = '#4B5563';
       ctx.fillRect(40 + j * cell, 40 + i * cell, cell - 1, cell - 1);
     }
   }
