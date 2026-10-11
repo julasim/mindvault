@@ -101,9 +101,12 @@ function renderMatrix(ctx, orderedIds, matrix) {
   orderedIds.forEach((id, i) => ctx.fillText(id.slice(0, 5), 2, 40 + i * cell + cell / 1.5));
 }
 
-function findNodeAt(positions, x, y, radius = 10) {
+// offsetX/offsetY kompensieren Ansichten, die ihre Positionen nicht in
+// rohen Canvas-Koordinaten zeichnen — z.B. die Kugel-Ansicht, die bei
+// cx+p.x/cy+p.y (Canvas-Mitte) zeichnet, siehe renderSphere.
+function findNodeAt(positions, x, y, radius = 10, offsetX = 0, offsetY = 0) {
   for (const [id, p] of Object.entries(positions)) {
-    if (Math.hypot(p.x - x, p.y - y) <= radius) return id;
+    if (Math.hypot(p.x + offsetX - x, p.y + offsetY - y) <= radius) return id;
   }
   return null;
 }
@@ -205,7 +208,18 @@ function initViewer() {
     const panel = document.getElementById('search-results');
     if (!query) { panel.style.display = 'none'; return; }
     const matches = searchFullText(currentFiles, query);
-    panel.innerHTML = matches.map(m => `<div><strong>${m.filename}</strong>: …${m.excerpt}…</div>`).join('');
+    // DOM-Aufbau statt innerHTML mit roher String-Interpolation: Vault-Inhalt
+    // (Dateiname/Ausschnitt) kann < & oder HTML-Kommentar-artigen Text
+    // enthalten (z.B. von eingefügtem Web-Content) — textContent behandelt
+    // das immer als Text, nie als Markup.
+    panel.textContent = '';
+    for (const m of matches) {
+      const row = document.createElement('div');
+      const strong = document.createElement('strong');
+      strong.textContent = m.filename;
+      row.append(strong, document.createTextNode(': …' + m.excerpt + '…'));
+      panel.append(row);
+    }
     panel.style.display = matches.length ? 'block' : 'none';
   }
 
@@ -222,6 +236,12 @@ function initViewer() {
   }
 
   async function loadFiles(files) {
+    // Auswahl/Hover aus dem vorigen Vault zurücksetzen — sonst versuchen
+    // recomputePositions/redraw einen lokalen Graph um eine Knoten-ID zu
+    // bauen, die im neu geladenen Vault gar nicht existiert, und erzeugen
+    // einen leeren Graphen ohne erkennbaren Grund für den Nutzer.
+    selectedNodeId = null;
+    hoveredId = null;
     currentFiles = files;
     currentGraph = buildGraph(files);
     renderTagFilters();
@@ -253,14 +273,30 @@ function initViewer() {
   });
 
   canvas.addEventListener('mousemove', (e) => {
+    // Matrix-Zellen stellen Paare von Knoten dar, nicht einzelne
+    // Knoten-Positionen im selben Koordinatensinn wie die anderen
+    // Ansichten — Hit-Testing hier wäre nicht wohldefiniert, also kein
+    // Hover-Highlight in dieser Ansicht.
+    if (activeView === 'matrix') {
+      if (hoveredId !== null) { hoveredId = null; redraw(); }
+      return;
+    }
     const rect = canvas.getBoundingClientRect();
-    hoveredId = findNodeAt(positions, e.clientX - rect.left, e.clientY - rect.top);
+    const offsetX = activeView === 'sphere' ? canvas.width / 2 : 0;
+    const offsetY = activeView === 'sphere' ? canvas.height / 2 : 0;
+    hoveredId = findNodeAt(positions, e.clientX - rect.left, e.clientY - rect.top, 10, offsetX, offsetY);
     redraw();
   });
 
   canvas.addEventListener('click', (e) => {
+    // Siehe Kommentar oben bei mousemove: Klicks in der Matrix-Ansicht
+    // dürfen nicht auf veraltete/falsche positions-Daten einer anderen
+    // Ansicht treffen, also bewusst kein findNodeAt-Aufruf hier.
+    if (activeView === 'matrix') return;
     const rect = canvas.getBoundingClientRect();
-    const id = findNodeAt(positions, e.clientX - rect.left, e.clientY - rect.top);
+    const offsetX = activeView === 'sphere' ? canvas.width / 2 : 0;
+    const offsetY = activeView === 'sphere' ? canvas.height / 2 : 0;
+    const id = findNodeAt(positions, e.clientX - rect.left, e.clientY - rect.top, 10, offsetX, offsetY);
     selectedNodeId = id;
     recomputeAndDraw();
   });

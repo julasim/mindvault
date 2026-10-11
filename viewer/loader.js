@@ -22,11 +22,23 @@ async function loadVaultViaPicker() {
   return collectMarkdownFiles(dirHandle);
 }
 
+// webkitRelativePath enthält den Namen des ausgewählten Ordners selbst als
+// erstes Pfadsegment (z.B. "demo-vault/projekte/kundenportal.md"), während
+// buildGraph (src/parser.js) IDs/Keys OHNE dieses äußere Ordner-Präfix
+// erwartet (z.B. "projekte/kundenportal") — genau wie beim Chrome/Edge-Pfad
+// (collectMarkdownFiles, der die Rekursion bereits im Inhalt des gewählten
+// Ordners beginnt). Also das erste Segment hier abschneiden.
+function stripOuterFolder(relativePath) {
+  const segments = relativePath.split('/');
+  return segments.length > 1 ? segments.slice(1).join('/') : relativePath;
+}
+
 async function loadVaultViaDragDrop(fileList) {
   const files = new Map();
   const mdFiles = [...fileList].filter(f => f.name.toLowerCase().endsWith('.md'));
   for (const f of mdFiles) {
-    files.set(f.webkitRelativePath || f.name, await f.text());
+    const key = f.webkitRelativePath ? stripOuterFolder(f.webkitRelativePath) : f.name;
+    files.set(key, await f.text());
   }
   return files;
 }

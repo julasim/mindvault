@@ -16,10 +16,33 @@ export function buildGraph(files) {
     idByLowerName.set(id.toLowerCase(), id);
   }
 
+  // Zweite Lookup-Tabelle für Obsidian-Stil-Auflösung nach bloßem
+  // Dateinamen (letztes Pfadsegment), nur wenn eindeutig — mehrdeutige
+  // Namen (zwei Dateien gleichen Namens in unterschiedlichen Ordnern)
+  // werden bewusst nicht aufgelöst, um kein falsches Ziel zu raten.
+  const idsByBareName = new Map();
+  for (const id of idByLowerName.values()) {
+    const bareName = id.split('/').pop().toLowerCase();
+    if (!idsByBareName.has(bareName)) idsByBareName.set(bareName, []);
+    idsByBareName.get(bareName).push(id);
+  }
+  const idByBareNameUnambiguous = new Map();
+  for (const [bareName, ids] of idsByBareName) {
+    if (ids.length === 1) idByBareNameUnambiguous.set(bareName, ids[0]);
+  }
+
   const parsedById = new Map();
   for (const [filename, content] of files) {
     const id = filename.replace(/\.md$/i, '');
     parsedById.set(id, parseMarkdown(content));
+  }
+
+  function resolveLink(rawLink) {
+    // Obsidian-Stil: [[ziel#Überschrift]] und [[ziel|Alias]] vor der
+    // Auflösung abschneiden.
+    const cleaned = rawLink.split('#')[0].split('|')[0].trim();
+    const lower = cleaned.toLowerCase();
+    return idByLowerName.get(lower) ?? idByBareNameUnambiguous.get(lower.split('/').pop()) ?? null;
   }
 
   const edges = [];
@@ -28,7 +51,7 @@ export function buildGraph(files) {
 
   for (const [id, data] of parsedById) {
     for (const rawLink of data.links) {
-      const targetId = idByLowerName.get(rawLink.toLowerCase());
+      const targetId = resolveLink(rawLink);
       if (!targetId || targetId === id) continue;
       edges.push({ source: id, target: targetId });
       incoming.set(targetId, (incoming.get(targetId) ?? 0) + 1);

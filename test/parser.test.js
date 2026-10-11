@@ -52,3 +52,43 @@ test('buildGraph ignoriert Selbstverweise', () => {
   const { edges } = buildGraph(files);
   assert.equal(edges.length, 0);
 });
+
+test('buildGraph löst einen bloßen Dateinamen-Link auf eine Datei in einem Unterordner auf', () => {
+  const files = new Map([
+    ['projekte/kundenportal.md', 'Inhalt'],
+    ['MEMORY.md', 'siehe [[kundenportal]]'],
+  ]);
+  const { edges } = buildGraph(files);
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0].target, 'projekte/kundenportal');
+});
+
+test('buildGraph löst [[ziel|Alias]]-Links korrekt nach dem Ziel auf', () => {
+  const files = new Map([
+    ['entscheidungen.md', 'Inhalt'],
+    ['a.md', 'siehe [[entscheidungen|Unsere Entscheidungen]]'],
+  ]);
+  const { edges } = buildGraph(files);
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0].target, 'entscheidungen');
+});
+
+test('buildGraph löst [[ziel#Überschrift]]-Links korrekt nach dem Ziel auf', () => {
+  const files = new Map([
+    ['entscheidungen.md', 'Inhalt'],
+    ['a.md', 'siehe [[entscheidungen#2026-01-01 — Titel]]'],
+  ]);
+  const { edges } = buildGraph(files);
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0].target, 'entscheidungen');
+});
+
+test('buildGraph löst einen mehrdeutigen bloßen Dateinamen NICHT auf', () => {
+  const files = new Map([
+    ['projekte/kundenportal.md', 'Inhalt A'],
+    ['archiv/kundenportal.md', 'Inhalt B'],
+    ['MEMORY.md', 'siehe [[kundenportal]]'],
+  ]);
+  const { edges } = buildGraph(files);
+  assert.equal(edges.length, 0);
+});
