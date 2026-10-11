@@ -1,0 +1,9 @@
+{
+  "name": "mindvault",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/",
+    "build": "node viewer/build.js"
+  }
+}
