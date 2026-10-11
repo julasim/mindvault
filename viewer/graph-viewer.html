@@ -541,6 +541,13 @@ function initViewer() {
   document.querySelectorAll('[data-view]').forEach(btn => {
     btn.addEventListener('click', () => { activeView = btn.dataset.view; recomputeAndDraw(); });
   });
+
+  document.getElementById('export-png').addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = `graph-${activeView}-${new Date().toISOString().slice(0, 10)}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
 }
 
 window.addEventListener('DOMContentLoaded', initViewer);
