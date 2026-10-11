@@ -86,6 +86,40 @@
     color: var(--gray-700);
     display: none;
   }
+  #info-panel {
+    position: absolute;
+    top: 48px;
+    right: 8px;
+    width: 320px;
+    max-height: 500px;
+    overflow: auto;
+    background: var(--paper);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  #info-panel-close {
+    font: inherit;
+    font-size: 13px;
+    float: right;
+    border: none;
+    background: none;
+    color: var(--gray-500);
+    cursor: pointer;
+    line-height: 1;
+  }
+  #info-panel-title {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: var(--gray-900);
+  }
+  #info-panel-content {
+    white-space: pre-wrap;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--gray-700);
+    margin: 0;
+  }
 </style>
 </head>
 <body>
@@ -102,10 +136,17 @@
     <button id="export-png">Export PNG</button>
     <input type="range" id="timeline-slider" min="0" max="0" value="0">
     <span id="timeline-label"></span>
+    <label><input type="checkbox" id="local-graph-toggle"> Lokaler Graph</label>
+    <input type="range" id="local-depth-slider" min="1" max="5" value="1">
   </div>
   <div id="canvas-wrap">
     <canvas id="graph-canvas" width="1000" height="700"></canvas>
     <div id="search-results"></div>
+    <div id="info-panel" style="display:none;">
+      <button id="info-panel-close">×</button>
+      <h3 id="info-panel-title"></h3>
+      <pre id="info-panel-content"></pre>
+    </div>
   </div>
   <script>
 function parseMarkdown(content) {
@@ -775,8 +816,43 @@ function initViewer() {
     const offsetY = activeView === 'sphere' ? canvas.height / 2 : 0;
     const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
     const id = findNodeAt(positions, world.x, world.y, 10, offsetX, offsetY);
-    selectedNodeId = id;
+
+    if (!id) {
+      document.getElementById('info-panel').style.display = 'none';
+      selectedNodeId = null;
+      recomputeAndDraw();
+      return;
+    }
+
+    showFileContent(id);
+    if (document.getElementById('local-graph-toggle').checked) {
+      selectedNodeId = id;
+      recomputeAndDraw();
+    }
+  });
+
+  function showFileContent(id) {
+    let fileContent = null;
+    for (const [filename, content] of currentFiles) {
+      if (filename.replace(/\.md$/i, '') === id) { fileContent = content; break; }
+    }
+    document.getElementById('info-panel-title').textContent = id;
+    document.getElementById('info-panel-content').textContent = fileContent ?? '(Datei nicht gefunden)';
+    document.getElementById('info-panel').style.display = 'block';
+  }
+
+  document.getElementById('info-panel-close').addEventListener('click', () => {
+    document.getElementById('info-panel').style.display = 'none';
+  });
+
+  document.getElementById('local-graph-toggle').addEventListener('change', (e) => {
+    if (!e.target.checked) selectedNodeId = null;
     recomputeAndDraw();
+  });
+
+  document.getElementById('local-depth-slider').addEventListener('input', (e) => {
+    localDepth = Number(e.target.value);
+    if (selectedNodeId) recomputeAndDraw();
   });
 
   // Wheel-Zoom: skaliert um die Mausposition (nicht um den Ursprung), damit

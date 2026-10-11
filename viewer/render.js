@@ -332,8 +332,43 @@ function initViewer() {
     const offsetY = activeView === 'sphere' ? canvas.height / 2 : 0;
     const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
     const id = findNodeAt(positions, world.x, world.y, 10, offsetX, offsetY);
-    selectedNodeId = id;
+
+    if (!id) {
+      document.getElementById('info-panel').style.display = 'none';
+      selectedNodeId = null;
+      recomputeAndDraw();
+      return;
+    }
+
+    showFileContent(id);
+    if (document.getElementById('local-graph-toggle').checked) {
+      selectedNodeId = id;
+      recomputeAndDraw();
+    }
+  });
+
+  function showFileContent(id) {
+    let fileContent = null;
+    for (const [filename, content] of currentFiles) {
+      if (filename.replace(/\.md$/i, '') === id) { fileContent = content; break; }
+    }
+    document.getElementById('info-panel-title').textContent = id;
+    document.getElementById('info-panel-content').textContent = fileContent ?? '(Datei nicht gefunden)';
+    document.getElementById('info-panel').style.display = 'block';
+  }
+
+  document.getElementById('info-panel-close').addEventListener('click', () => {
+    document.getElementById('info-panel').style.display = 'none';
+  });
+
+  document.getElementById('local-graph-toggle').addEventListener('change', (e) => {
+    if (!e.target.checked) selectedNodeId = null;
     recomputeAndDraw();
+  });
+
+  document.getElementById('local-depth-slider').addEventListener('input', (e) => {
+    localDepth = Number(e.target.value);
+    if (selectedNodeId) recomputeAndDraw();
   });
 
   // Wheel-Zoom: skaliert um die Mausposition (nicht um den Ursprung), damit
