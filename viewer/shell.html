@@ -1,0 +1,38 @@
+<!-- viewer/shell.html -->
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Vault Graph Viewer</title>
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e1e; color: #eee; }
+  #toolbar { display: flex; gap: 8px; padding: 8px; background: #2a2a2a; flex-wrap: wrap; align-items: center; }
+  #toolbar button, #toolbar input { font: inherit; padding: 4px 8px; }
+  #canvas-wrap { position: relative; }
+  canvas { display: block; background: #1e1e1e; }
+  #tag-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+  #search-results { position: absolute; top: 48px; left: 8px; background: #2a2a2a; max-height: 300px; overflow: auto; padding: 8px; display: none; }
+</style>
+</head>
+<body>
+  <div id="toolbar">
+    <button id="open-folder">Vault-Ordner öffnen</button>
+    <input type="file" id="drag-fallback" webkitdirectory style="display:none">
+    <button data-view="2d">Obsidian-2D</button>
+    <button data-view="tree">Baum</button>
+    <button data-view="sphere">3D-Kugel</button>
+    <button data-view="matrix">Matrix</button>
+    <input type="text" id="search" placeholder="Suche...">
+    <label><input type="checkbox" id="hide-orphans"> Verwaiste ausblenden</label>
+    <div id="tag-filters"></div>
+    <button id="export-png">Export PNG</button>
+  </div>
+  <div id="canvas-wrap">
+    <canvas id="graph-canvas" width="1000" height="700"></canvas>
+    <div id="search-results"></div>
+  </div>
+  <script>
+/*__INLINE_SCRIPTS__*/
+  </script>
+</body>
+</html>
