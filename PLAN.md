@@ -1640,7 +1640,157 @@ git commit -m "feat: Tag-Filter-UI, Suchergebnis-Panel und Zeitleiste-Steuerung"
 
 ---
 
-## Task 14: Demo-Vault befüllen
+## Task 14: Sima-Design-Styling anwenden
+
+**Files:**
+- Modify: `apps/mindvault/viewer/shell.html` (CSS-Variablen + Styles ersetzen)
+- Modify: `apps/mindvault/viewer/render.js` (Tag-Farbpalette ersetzen)
+
+**Interfaces:**
+- Keine neuen Funktionen — reine Styling-Änderung, Verhalten bleibt
+  identisch zu Task 13.
+- Ruling (siehe Ledger): UI-Chrome bekommt volles Sima-Design
+  (grayscale, Helvetica, Hairline-Borders, flach). Die Tag-Farbcodierung
+  im Canvas bleibt bestehen (Kernfunktion aus der PRD), wird aber auf
+  eine gedämpfte, der Status-Palette entlehnte Farbreihe umgestellt statt
+  kräftiger SaaS-Farben.
+
+- [ ] **Step 1: CSS-Variablen und Styles in `shell.html` durch Sima-Design-Werte ersetzen**
+
+```html
+<!-- viewer/shell.html — den bestehenden <style>-Block ersetzen durch: -->
+<style>
+  :root {
+    --ink: #0A0A0A;
+    --paper: #FFFFFF;
+    --gray-50: #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-700: #374151;
+    --gray-900: #111827;
+    --font-sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--gray-700);
+    background: var(--paper);
+  }
+  #toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #FAFAFA;
+    border-bottom: 1px solid var(--gray-200);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  #toolbar button {
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--gray-200);
+    background: var(--paper);
+    color: var(--gray-700);
+    cursor: pointer;
+    transition: background 180ms ease, border-color 180ms ease;
+  }
+  #toolbar button:hover {
+    background: var(--gray-50);
+    border-color: var(--gray-300);
+  }
+  #toolbar input[type="text"] {
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--gray-200);
+    color: var(--gray-700);
+  }
+  #toolbar input[type="text"]:focus {
+    outline: none;
+    border-color: var(--gray-400);
+  }
+  #toolbar label {
+    font-size: 13px;
+    color: var(--gray-500);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  #canvas-wrap { position: relative; }
+  canvas { display: block; background: var(--paper); }
+  #tag-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+  #search-results {
+    position: absolute;
+    top: 48px;
+    left: 8px;
+    background: var(--paper);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    max-height: 300px;
+    overflow: auto;
+    padding: 12px;
+    font-size: 13px;
+    color: var(--gray-700);
+    display: none;
+  }
+</style>
+```
+
+- [ ] **Step 2: Canvas-Hintergrund und Textfarbe in `render.js` an das helle Sima-Design anpassen**
+
+```javascript
+// viewer/render.js — in renderObsidian2D, renderTree, renderSphere, renderMatrix:
+// jedes ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height) durch einen
+// expliziten weißen Hintergrund-Fill ersetzen (behebt zugleich den
+// transparenten PNG-Export aus Task 12s Review-Befund):
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+// und jedes Vorkommen von ctx.fillStyle = '#ddd' (Knoten-/Zellen-Beschriftung
+// in renderObsidian2D, renderTree, renderMatrix) ersetzen durch:
+  ctx.fillStyle = '#374151';
+```
+
+- [ ] **Step 3: Gedämpfte Tag-Farbpalette statt kräftiger SaaS-Farben**
+
+```javascript
+// viewer/render.js — TAG_COLORS ersetzen durch eine gedämpfte,
+// der Status-Palette entlehnte Reihe (bewusst keine kräftigen
+// Vollfarben, passend zu "quieter is correct"):
+const TAG_COLORS = ['#6B7280', '#B45309', '#15803D', '#B91C1C', '#2563EB', '#4B5563'];
+```
+
+- [ ] **Step 4: Build ausführen und manuell prüfen**
+
+Run: `node viewer/build.js`
+Manuelle Prüfung: `viewer/graph-viewer.html` öffnen. Erwartet: helle,
+schlichte Werkzeugleiste (keine dunkle SaaS-Optik), Helvetica-Schrift,
+dünne graue Trennlinie unter der Werkzeugleiste, Buttons mit Hairline-
+Border statt Vollfarbe. Der Graph selbst bleibt auf hellem Hintergrund,
+Tag-Farben sind gedämpft statt grell, aber weiterhin pro Tag
+unterscheidbar. Export-PNG (Task 12) hat jetzt einen weißen statt
+transparenten Hintergrund. Funktionalität (Laden, Filtern, Suchen,
+Ansichten wechseln) unverändert gegenüber Task 13.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add viewer/shell.html viewer/render.js viewer/graph-viewer.html
+git commit -m "style: Sima-Design auf UI-Chrome anwenden, gedämpfte Tag-Palette"
+```
+
+---
+
+## Task 15: Demo-Vault befüllen
 
 **Files:**
 - Create: `apps/mindvault/demo-vault/MEMORY.md`
@@ -1777,7 +1927,7 @@ git commit -m "feat: befüllten Demo-Vault für den ersten Eindruck ergänzen"
 
 ---
 
-## Task 15: README, Plattform-Adapter und Lizenztext
+## Task 16: README, Plattform-Adapter und Lizenztext
 
 **Files:**
 - Create: `apps/mindvault/docs/README.md`
