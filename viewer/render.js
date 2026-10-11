@@ -43,6 +43,56 @@ function renderObsidian2D(ctx, graph, positions, options = {}) {
   }
 }
 
+function renderTree(ctx, graph, positions) {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.strokeStyle = '#555';
+  for (const e of graph.edges) {
+    const s = positions[e.source], t = positions[e.target];
+    if (!s || !t) continue;
+    ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(t.x, t.y); ctx.stroke();
+  }
+  for (const n of graph.nodes) {
+    const p = positions[n.id];
+    if (!p) continue;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = colorForTag(n.tags?.[0]); ctx.fill();
+    ctx.fillStyle = '#ddd'; ctx.font = '11px system-ui';
+    ctx.fillText(n.id, p.x + 10, p.y + 3);
+  }
+}
+
+function renderSphere(ctx, graph, positions) {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const cx = ctx.canvas.width / 2, cy = ctx.canvas.height / 2;
+  const sorted = [...graph.nodes].sort((a, b) => (positions[a.id]?.z3 ?? 0) - (positions[b.id]?.z3 ?? 0));
+  for (const n of sorted) {
+    const p = positions[n.id];
+    if (!p) continue;
+    const radius = 6 * p.scale;
+    ctx.beginPath();
+    ctx.arc(cx + p.x, cy + p.y, Math.max(radius, 1), 0, Math.PI * 2);
+    ctx.fillStyle = colorForTag(n.tags?.[0]);
+    ctx.globalAlpha = Math.max(0.3, Math.min(1, p.scale));
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function renderMatrix(ctx, orderedIds, matrix) {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const size = orderedIds.length;
+  const cell = Math.max(4, Math.min(20, Math.floor(600 / Math.max(size, 1))));
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      if (!matrix[i][j]) continue;
+      ctx.fillStyle = '#61afef';
+      ctx.fillRect(40 + j * cell, 40 + i * cell, cell - 1, cell - 1);
+    }
+  }
+  ctx.fillStyle = '#ddd'; ctx.font = '10px system-ui';
+  orderedIds.forEach((id, i) => ctx.fillText(id.slice(0, 5), 2, 40 + i * cell + cell / 1.5));
+}
+
 function findNodeAt(positions, x, y, radius = 10) {
   for (const [id, p] of Object.entries(positions)) {
     if (Math.hypot(p.x - x, p.y - y) <= radius) return id;
@@ -81,6 +131,8 @@ function initViewer() {
   let hoveredId = null;
   let positions = {};
   let currentFiltered = { nodes: [], edges: [] };
+  let matrixOrderedIds = [];
+  let matrixData = [];
 
   // Layout-Neuberechnung ist teuer (layoutForceDirected simuliert bei
   // jedem Aufruf von Grund auf neu). Sie läuft daher nur, wenn sich etwas
@@ -95,15 +147,26 @@ function initViewer() {
 
     if (activeView === '2d') {
       positions = layoutForceDirected(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, height: canvas.height, iterations: 150 });
+    } else if (activeView === 'tree') {
+      positions = layoutTree(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, levelHeight: 90 });
+    } else if (activeView === 'sphere') {
+      positions = layoutSphere(currentFiltered.nodes, { radius: 200, rotationY: Date.now() / 4000 });
+    } else if (activeView === 'matrix') {
+      matrixOrderedIds = layoutMatrixOrder(currentFiltered.nodes);
+      matrixData = buildAdjacencyMatrix(matrixOrderedIds, currentFiltered.edges);
     }
-    // Baum/3D-Kugel/Matrix-Zweige werden in Task 11 ergänzt.
   }
 
   function redraw() {
     if (activeView === '2d') {
       renderObsidian2D(ctx, currentFiltered, positions, { hoveredId, selectedId: selectedNodeId });
+    } else if (activeView === 'tree') {
+      renderTree(ctx, currentFiltered, positions);
+    } else if (activeView === 'sphere') {
+      renderSphere(ctx, currentFiltered, positions);
+    } else if (activeView === 'matrix') {
+      renderMatrix(ctx, matrixOrderedIds, matrixData);
     }
-    // Baum/3D-Kugel/Matrix-Zweige werden in Task 11 ergänzt.
   }
 
   function recomputeAndDraw() {
