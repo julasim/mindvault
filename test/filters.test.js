@@ -32,6 +32,15 @@ test('query mit contentMatchIds lässt einen Knoten passieren, der nur inhaltlic
   assert.deepEqual(result.nodes.map(n => n.id), ['b']);
 });
 
+test('query kombiniert Dateiname-Treffer UND contentMatchIds als Vereinigung, nicht als Ersatz', () => {
+  // 'a' matcht per Dateiname ('a' enthält 'a'), 'b' matcht nur über
+  // contentMatchIds. Eine Implementierung, die den Dateiname-Filter durch
+  // contentMatchIds ERSETZT statt ihn per ODER zu kombinieren, würde hier
+  // 'a' verlieren — nur der echte Union-Test deckt das auf.
+  const result = applyFilters(graph, { query: 'a', contentMatchIds: new Set(['b']) });
+  assert.deepEqual(result.nodes.map(n => n.id).sort(), ['a', 'b']);
+});
+
 test('ohne Filter bleibt der gesamte Graph erhalten', () => {
   const result = applyFilters(graph, {});
   assert.equal(result.nodes.length, 3);

@@ -138,11 +138,11 @@ function renderMatrix(ctx, orderedIds, matrix) {
     for (let j = 0; j < size; j++) {
       if (!matrix[i][j]) continue;
       ctx.fillStyle = '#4B5563';
-      ctx.fillRect(40 + j * cell, 40 + i * cell, cell - 1, cell - 1);
+      ctx.fillRect(70 + j * cell, 70 + i * cell, cell - 1, cell - 1);
     }
   }
   ctx.fillStyle = '#374151'; ctx.font = '10px system-ui';
-  orderedIds.forEach((id, i) => ctx.fillText(id.length > 10 ? id.slice(0, 9) + '…' : id, 2, 40 + i * cell + cell / 1.5));
+  orderedIds.forEach((id, i) => ctx.fillText(id.length > 10 ? id.slice(0, 9) + '…' : id, 2, 70 + i * cell + cell / 1.5));
 }
 
 // offsetX/offsetY kompensieren Ansichten, die ihre Positionen nicht in
@@ -359,6 +359,14 @@ function initViewer() {
     // einen leeren Graphen ohne erkennbaren Grund für den Nutzer.
     selectedNodeId = null;
     hoveredId = null;
+    // Such-/Inhaltstreffer-Filter des vorigen Vaults zurücksetzen — sonst
+    // bleibt ein noch aktiver contentMatchIds-Satz (oder Suchtext) gegen
+    // das neu geladene Vault aktiv, bis der Nutzer erneut tippt, und
+    // filtert den neuen Graph gegen Treffer, die gar nicht mehr existieren.
+    filters = { ...filters, query: '', contentMatchIds: null };
+    const searchInput = document.getElementById('search');
+    if (searchInput) searchInput.value = '';
+    renderSearchResults('');
     // Timeline-Intervall des vorigen Vaults stoppen — sonst feuert es
     // gegen den Slider des neu geladenen Vaults weiter (anderes `max`),
     // und die Play-Taste bleibt auf "⏸" stehen, obwohl nichts mehr läuft.
@@ -374,6 +382,11 @@ function initViewer() {
       contentById.set(filename.replace(/\.md$/i, ''), content);
     }
     renderTagFilters();
+    // Toolbar kann durch renderTagFilters wachsen (mehr Tag-Checkboxen,
+    // flex-wrap auf eine zusätzliche Zeile) — Canvas muss neu vermessen
+    // werden, bevor recomputeAndDraw mit der neuen Höhe zeichnet, sonst
+    // bleibt die Canvas auf die alte (kürzere) Toolbar-Höhe skaliert.
+    resizeCanvas();
     setupTimeline();
     recomputeAndDraw();
   }
