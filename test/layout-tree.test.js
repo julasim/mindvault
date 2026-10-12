@@ -24,6 +24,20 @@ test('leerer Knoten-Satz liefert leeres Ergebnis ohne Fehler', () => {
   assert.deepEqual(layoutTree([], []), {});
 });
 
+test('explizite rootId wird als BFS-Wurzel verwendet, auch wenn ein anderer Knoten mehr eingehende Links hat', () => {
+  const nodes = [
+    { id: 'root', incoming: 2 },
+    { id: 'hub', incoming: 5 },
+    { id: 'child', incoming: 1 },
+  ];
+  const edges = [{ source: 'root', target: 'child' }];
+  const positions = layoutTree(nodes, edges, { width: 400, levelHeight: 100, rootId: 'root' });
+  assert.equal(positions.root.y, 40);
+  assert.equal(positions.child.y, 140);
+  // hub ist ohne Kante zu root unverlinkt und landet daher ebenfalls auf Ebene 0.
+  assert.equal(positions.hub.y, 40);
+});
+
 test('zirkuläre Kanten terminieren die Breitensuche', () => {
   const nodes = [{ id: 'a', incoming: 1 }, { id: 'b', incoming: 1 }];
   const edges = [{ source: 'a', target: 'b' }, { source: 'b', target: 'a' }];

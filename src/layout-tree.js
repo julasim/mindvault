@@ -10,7 +10,8 @@ export function layoutTree(nodes, edges, options = {}) {
     adjacency.get(e.target)?.push(e.source);
   }
 
-  const root = nodes.reduce((best, n) => (n.incoming ?? 0) > (best.incoming ?? 0) ? n : best, nodes[0]);
+  const explicitRoot = options.rootId != null ? nodes.find(n => n.id === options.rootId) : undefined;
+  const root = explicitRoot ?? nodes.reduce((best, n) => (n.incoming ?? 0) > (best.incoming ?? 0) ? n : best, nodes[0]);
 
   const depth = new Map([[root.id, 0]]);
   const queue = [root.id];

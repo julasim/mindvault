@@ -7,6 +7,10 @@ async function collectMarkdownFiles(dirHandle, prefix = '') {
   const files = new Map();
   for await (const [name, handle] of dirHandle.entries()) {
     if (handle.kind === 'directory') {
+      // .obsidian/.git enthalten keine für den Graph relevanten
+      // Markdown-Dateien, nur Konfiguration/Versionsverlauf — unnötig
+      // (und bei .git potenziell langsam), dort zu rekursieren.
+      if (name === '.obsidian' || name === '.git') continue;
       const nested = await collectMarkdownFiles(handle, prefix + name + '/');
       for (const [k, v] of nested) files.set(k, v);
     } else if (name.toLowerCase().endsWith('.md')) {

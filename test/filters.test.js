@@ -27,6 +27,11 @@ test('query filtert nach Dateiname-Teilstring, case-insensitiv', () => {
   assert.deepEqual(result.nodes.map(n => n.id), ['a']);
 });
 
+test('query mit contentMatchIds lässt einen Knoten passieren, der nur inhaltlich passt (nicht per Dateiname)', () => {
+  const result = applyFilters(graph, { query: 'zzz', contentMatchIds: new Set(['b']) });
+  assert.deepEqual(result.nodes.map(n => n.id), ['b']);
+});
+
 test('ohne Filter bleibt der gesamte Graph erhalten', () => {
   const result = applyFilters(graph, {});
   assert.equal(result.nodes.length, 3);

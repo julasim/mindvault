@@ -1,11 +1,15 @@
 export function applyFilters(graph, filters = {}) {
-  const { activeTags = null, hideOrphans = false, query = '' } = filters;
+  const { activeTags = null, hideOrphans = false, query = '', contentMatchIds = null } = filters;
   const q = query.trim().toLowerCase();
 
   const nodes = graph.nodes.filter(n => {
     if (hideOrphans && n.orphan) return false;
     if (activeTags && activeTags.length > 0 && !n.tags.some(t => activeTags.includes(t))) return false;
-    if (q && !n.id.toLowerCase().includes(q)) return false;
+    if (q) {
+      const matchesFilename = n.id.toLowerCase().includes(q);
+      const matchesContent = contentMatchIds instanceof Set && contentMatchIds.has(n.id);
+      if (!matchesFilename && !matchesContent) return false;
+    }
     return true;
   });
   const keep = new Set(nodes.map(n => n.id));

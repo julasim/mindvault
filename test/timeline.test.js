@@ -20,3 +20,18 @@ test('Zeilen ohne gültiges Datum werden übersprungen, kein Fehler', () => {
 test('leerer Inhalt liefert leeres Array', () => {
   assert.deepEqual(buildTimelineEvents(''), []);
 });
+
+test('Zeilen innerhalb eines mehrzeiligen HTML-Kommentars werden übersprungen (Vault-Template-Struktur)', () => {
+  const content = [
+    '# Sitzungs-Log',
+    '',
+    '<!-- Beispiel:',
+    '- 2026-01-01 — Projekt X aufgesetzt, lief gut.',
+    '-->',
+    '- 2026-03-01 — echtes Ereignis',
+  ].join('\n');
+  const events = buildTimelineEvents(content);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].date, '2026-03-01');
+  assert.match(events[0].text, /echtes Ereignis/);
+});

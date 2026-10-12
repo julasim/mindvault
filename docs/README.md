@@ -28,8 +28,12 @@
 ```
 
 **ChatGPT (mit Dateizugriff/Projekte):** Lade `MEMORY.md` und die
-relevanten `projekte/*.md`-Dateien als Projektwissen hoch. Füge den
-Inhalt von `CLAUDE.md` als Custom Instructions ein.
+relevanten `projekte/*.md`-Dateien als Projektwissen hoch. Nutze dafür
+wenn möglich ein ChatGPT-**Projekt** (projektweite Anweisungen haben mehr
+Platz) und füge dort den Inhalt von `CLAUDE.md` ein. Ohne Projekte ist das
+Feld für Custom Instructions oft zu kurz für die ganze Datei — dann
+reichen als Fallback die drei Kernkonventionen (Tags, Fälligkeiten,
+Verknüpfungen).
 
 **Claude.ai-Projekte:** Lade den gesamten Vault-Ordner als Projektwissen
 hoch, füge `CLAUDE.md` als Projekt-Anweisungen ein.

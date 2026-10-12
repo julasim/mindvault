@@ -112,11 +112,27 @@ function renderSphere(ctx, graph, positions) {
   }
 }
 
+const MATRIX_MAX_NODES = 150;
+
 function renderMatrix(ctx, orderedIds, matrix) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   const size = orderedIds.length;
+
+  if (size > MATRIX_MAX_NODES) {
+    ctx.fillStyle = '#374151';
+    ctx.font = '13px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      `Zu viele Dateien für die Matrix-Ansicht (über ${MATRIX_MAX_NODES}) — wähle eine andere Ansicht oder filtere zuerst nach Tag.`,
+      ctx.canvas.width / 2,
+      ctx.canvas.height / 2
+    );
+    ctx.textAlign = 'left';
+    return;
+  }
+
   const cell = Math.max(4, Math.min(20, Math.floor(600 / Math.max(size, 1))));
   for (let i = 0; i < size; i++) {
     for (let j = 0; j < size; j++) {
@@ -126,7 +142,7 @@ function renderMatrix(ctx, orderedIds, matrix) {
     }
   }
   ctx.fillStyle = '#374151'; ctx.font = '10px system-ui';
-  orderedIds.forEach((id, i) => ctx.fillText(id.slice(0, 5), 2, 40 + i * cell + cell / 1.5));
+  orderedIds.forEach((id, i) => ctx.fillText(id.length > 10 ? id.slice(0, 9) + '…' : id, 2, 40 + i * cell + cell / 1.5));
 }
 
 // offsetX/offsetY kompensieren Ansichten, die ihre Positionen nicht in
@@ -162,9 +178,10 @@ function initViewer() {
   const ctx = canvas.getContext('2d');
 
   let currentFiles = new Map();
+  let contentById = new Map();
   let currentGraph = { nodes: [], edges: [] };
   let activeView = '2d';
-  let filters = { activeTags: null, hideOrphans: false, query: '' };
+  let filters = { activeTags: null, hideOrphans: false, query: '', contentMatchIds: null };
   let selectedNodeId = null;
   let localDepth = 1;
   let hoveredId = null;
@@ -189,14 +206,27 @@ function initViewer() {
     return { x: (screenX - camera.x) / camera.scale, y: (screenY - camera.y) / camera.scale };
   }
 
-  function centerCameraOnRoot(filteredNodes) {
-    const root = detectRootNode(filteredNodes);
-    if (!root || !positions[root.id]) { camera = { x: 0, y: 0, scale: 1 }; return; }
+  function centerCameraOnNodeId(id) {
+    if (!id || !positions[id]) { camera = { x: 0, y: 0, scale: 1 }; return; }
     camera = {
-      x: canvas.width / 2 - positions[root.id].x,
-      y: canvas.height / 2 - positions[root.id].y,
+      x: canvas.width / 2 - positions[id].x,
+      y: canvas.height / 2 - positions[id].y,
       scale: 1,
     };
+  }
+
+  function centerCameraOnRoot(filteredNodes) {
+    // Im lokalen-Graph-Modus (selectedNodeId gesetzt) soll die Kamera auf
+    // den tatsächlich angeklickten Knoten zentrieren, nicht auf den per
+    // detectRootNode ermittelten Hub des Teilgraphen — sonst springt die
+    // Kamera beim Klick ggf. auf einen Nachbarn statt auf den Knoten, auf
+    // den der Nutzer tatsächlich geklickt hat.
+    if (selectedNodeId && positions[selectedNodeId]) {
+      centerCameraOnNodeId(selectedNodeId);
+      return;
+    }
+    const root = detectRootNode(filteredNodes);
+    centerCameraOnNodeId(root?.id ?? null);
   }
 
   // Layout-Neuberechnung ist teuer (layoutForceDirected simuliert bei
@@ -214,7 +244,7 @@ function initViewer() {
       positions = layoutForceDirected(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, height: canvas.height, iterations: 150 });
       centerCameraOnRoot(currentFiltered.nodes);
     } else if (activeView === 'tree') {
-      positions = layoutTree(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, levelHeight: 90 });
+      positions = layoutTree(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, levelHeight: 90, rootId: detectRootNode(currentFiltered.nodes)?.id });
       centerCameraOnRoot(currentFiltered.nodes);
     } else if (activeView === 'sphere') {
       const root = detectRootNode(currentFiltered.nodes);
@@ -297,6 +327,10 @@ function initViewer() {
 
   document.getElementById('timeline-play').addEventListener('click', (e) => {
     const slider = document.getElementById('timeline-slider');
+    // Ohne Ereignisse (slider.max === "0") gibt es nichts abzuspielen —
+    // sofort abbrechen, bevor der Pause-Icon-Zustand überhaupt gesetzt
+    // wird, sonst flackert die Taste kurz auf '⏸' ohne jede Wirkung.
+    if (Number(slider.max) === 0) return;
     if (timelineInterval) {
       clearInterval(timelineInterval);
       timelineInterval = null;
@@ -307,9 +341,10 @@ function initViewer() {
     timelineInterval = setInterval(() => {
       const next = Number(slider.value) + 1;
       if (next > Number(slider.max)) {
-        clearInterval(timelineInterval);
-        timelineInterval = null;
-        document.getElementById('timeline-play').textContent = '▶';
+        // Am Ende der Zeitleiste nicht stoppen, sondern von vorne beginnen
+        // — Wiedergabe soll loopen, nicht einmalig durchlaufen.
+        slider.value = '0';
+        slider.oninput();
         return;
       }
       slider.value = String(next);
@@ -334,6 +369,10 @@ function initViewer() {
     }
     currentFiles = files;
     currentGraph = buildGraph(files);
+    contentById = new Map();
+    for (const [filename, content] of currentFiles) {
+      contentById.set(filename.replace(/\.md$/i, ''), content);
+    }
     renderTagFilters();
     setupTimeline();
     recomputeAndDraw();
@@ -341,7 +380,15 @@ function initViewer() {
 
   document.getElementById('open-folder').addEventListener('click', async () => {
     if (supportsFileSystemAccess()) {
-      loadFiles(await loadVaultViaPicker());
+      try {
+        loadFiles(await loadVaultViaPicker());
+      } catch (error) {
+        // Der native Ordner-Dialog lehnt mit AbortError ab, wenn der
+        // Nutzer ihn einfach abbricht (Escape/Abbrechen) — kein Fehler,
+        // einfach nichts tun. Jede andere Fehlerart ist ein echtes
+        // Problem und soll nicht verschluckt werden.
+        if (error?.name !== 'AbortError') throw error;
+      }
     } else {
       document.getElementById('drag-fallback').click();
     }
@@ -351,10 +398,25 @@ function initViewer() {
     loadFiles(await loadVaultViaDragDrop(e.target.files));
   });
 
+  let searchDebounceTimer = null;
   document.getElementById('search').addEventListener('input', (e) => {
-    filters = { ...filters, query: e.target.value };
-    renderSearchResults(e.target.value);
-    recomputeAndDraw();
+    const value = e.target.value;
+    renderSearchResults(value);
+    // Inhalts-Treffer mit in den Graph-Filter einspeisen: eine Suche, die
+    // nur im Dateiinhalt (nicht im Dateinamen) trifft, soll den Knoten im
+    // Graph genauso zeigen wie im Ergebnis-Panel — siehe applyFilters in
+    // src/filters.js (contentMatchIds).
+    const contentMatchIds = value.trim()
+      ? new Set(searchFullText(currentFiles, value).map(m => m.filename.replace(/\.md$/i, '')))
+      : null;
+    filters = { ...filters, query: value, contentMatchIds };
+    // Debounce: layoutForceDirected ist eine teure Simulation — bei jedem
+    // Tastendruck neu rechnen lassen würde die Eingabe ruckeln lassen.
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      searchDebounceTimer = null;
+      recomputeAndDraw();
+    }, 150);
   });
 
   document.getElementById('hide-orphans').addEventListener('change', (e) => {
@@ -413,10 +475,7 @@ function initViewer() {
   });
 
   function showFileContent(id) {
-    let fileContent = null;
-    for (const [filename, content] of currentFiles) {
-      if (filename.replace(/\.md$/i, '') === id) { fileContent = content; break; }
-    }
+    const fileContent = contentById.get(id);
     document.getElementById('info-panel-title').textContent = id;
     document.getElementById('info-panel-content').textContent = fileContent ?? '(Datei nicht gefunden)';
     document.getElementById('info-panel').style.display = 'block';
@@ -428,11 +487,13 @@ function initViewer() {
 
   document.getElementById('local-graph-toggle').addEventListener('change', (e) => {
     if (!e.target.checked) selectedNodeId = null;
+    document.getElementById('local-depth-slider').disabled = !e.target.checked;
     recomputeAndDraw();
   });
 
   document.getElementById('local-depth-slider').addEventListener('input', (e) => {
     localDepth = Number(e.target.value);
+    document.getElementById('local-depth-label').textContent = String(localDepth);
     if (selectedNodeId) recomputeAndDraw();
   });
 
@@ -483,6 +544,32 @@ function initViewer() {
     link.href = canvas.toDataURL('image/png');
     link.click();
   });
+
+  // Canvas füllt den verfügbaren Platz unterhalb der Toolbar, statt einer
+  // festen Größe — resize-Events kommen sehr häufig (z.B. beim Ziehen am
+  // Fensterrand), daher wie die Suche debounct, um nicht bei jedem
+  // Zwischenschritt die teure Layout-Neuberechnung anzustoßen.
+  function resizeCanvas() {
+    const toolbarHeight = document.getElementById('toolbar').offsetHeight;
+    canvas.width = window.innerWidth;
+    canvas.height = Math.max(200, window.innerHeight - toolbarHeight);
+  }
+  resizeCanvas();
+  recomputeAndDraw();
+
+  let resizeDebounceTimer = null;
+  window.addEventListener('resize', () => {
+    if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+    resizeDebounceTimer = setTimeout(() => {
+      resizeDebounceTimer = null;
+      resizeCanvas();
+      recomputeAndDraw();
+    }, 150);
+  });
+
+  // Tiefen-Regler für den lokalen Graph beginnt deaktiviert, da die
+  // zugehörige Checkbox ('local-graph-toggle') beim Start unchecked ist.
+  document.getElementById('local-depth-slider').disabled = true;
 }
 
 window.addEventListener('DOMContentLoaded', initViewer);

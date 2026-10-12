@@ -6,7 +6,6 @@
 <title>Vault Graph Viewer</title>
 <style>
   :root {
-    --ink: #0A0A0A;
     --paper: #FFFFFF;
     --gray-50: #F9FAFB;
     --gray-100: #F3F4F6;
@@ -139,9 +138,10 @@
     <span id="timeline-label"></span>
     <label><input type="checkbox" id="local-graph-toggle"> Lokaler Graph</label>
     <input type="range" id="local-depth-slider" min="1" max="5" value="1">
+    <span id="local-depth-label">1</span>
   </div>
   <div id="canvas-wrap">
-    <canvas id="graph-canvas" width="1000" height="700"></canvas>
+    <canvas id="graph-canvas"></canvas>
     <div id="search-results"></div>
     <div id="info-panel" style="display:none;">
       <button id="info-panel-close">×</button>
