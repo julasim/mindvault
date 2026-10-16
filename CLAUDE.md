@@ -153,6 +153,13 @@ Weitergabe/kein Weiterverkauf).
 
 ## Änderungslog
 
+- 2026-10-16 (noch später) — Knoten-Rendering veredelt: `glowingNode` in
+  `viewer/render.js` zeichnet jetzt einen radialen Verlauf (heller
+  Glanzpunkt → Grundfarbe → dunklerer Rand, via neuer `shadeColor`-
+  Hilfsfunktion) plus dünne Kontur statt einer flachen Füllung — wirkt in
+  allen drei Designs (auch Hell, ohne shadowBlur) wie eine kleine
+  Glaskugel statt einem platten Punkt. Betrifft Obsidian-2D und 3D-Kugel
+  gemeinsam (eine Funktion). Ausliefer-Artefakt neu gebaut.
 - 2026-10-16 (später) — 3D-Kugel: Drehung auf beide Achsen erweitert
   (`layout-sphere.js` wendet jetzt `rotationX` zusätzlich zu `rotationY`
   an, vertikales Ziehen in `render.js` steuert `sphereManualRotationX`) —

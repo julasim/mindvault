@@ -466,6 +466,21 @@ function fillBackground(ctx) {
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
+// Hellt (percent > 0) oder dunkelt (percent < 0) eine "#rrggbb"-Farbe ab —
+// für den Glanzpunkt/Rand jedes Knotens. Alle Theme-Farben (tagColors,
+// label, highlightLabel) sind bewusst als Hex definiert, damit das hier
+// immer greift.
+function shadeColor(hex, percent) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  let r = (num >> 16) & 0xff, g = (num >> 8) & 0xff, b = num & 0xff;
+  if (percent >= 0) {
+    r += (255 - r) * percent; g += (255 - g) * percent; b += (255 - b) * percent;
+  } else {
+    r *= 1 + percent; g *= 1 + percent; b *= 1 + percent;
+  }
+  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+}
+
 function glowingNode(ctx, x, y, radius, color, highlighted) {
   // Stark-HUD: zusätzlicher, leicht pulsierend wirkender Zielring um jeden
   // Knoten (zwei dünne, halbtransparente Kreise) — rein kosmetisch, ändert
@@ -484,13 +499,34 @@ function glowingNode(ctx, x, y, radius, color, highlighted) {
     ctx.stroke();
     ctx.restore();
   }
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fillStyle = color;
+
+  ctx.save();
   ctx.shadowColor = color;
   ctx.shadowBlur = highlighted ? currentTheme.glow.highlighted : currentTheme.glow.base;
+
+  // Radialer Verlauf (heller Glanzpunkt oben links → Grundfarbe → dunklerer
+  // Rand) statt einer flachen Füllung — wirkt wie eine kleine Glaskugel
+  // statt einem platten Punkt, in allen drei Designs (im hellen Design
+  // ohne shadowBlur, aber mit demselben Verlauf+Rand für Tiefe).
+  const gradient = ctx.createRadialGradient(
+    x - radius * 0.35, y - radius * 0.35, Math.max(radius * 0.05, 0.1),
+    x, y, radius
+  );
+  gradient.addColorStop(0, shadeColor(color, 0.55));
+  gradient.addColorStop(0.55, color);
+  gradient.addColorStop(1, shadeColor(color, -0.25));
+
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = gradient;
   ctx.fill();
   ctx.shadowBlur = 0;
+
+  ctx.lineWidth = highlighted ? 1.5 : 1;
+  ctx.strokeStyle = highlighted ? currentTheme.highlightLabel : shadeColor(color, -0.35);
+  ctx.globalAlpha = highlighted ? 0.9 : 0.6;
+  ctx.stroke();
+  ctx.restore();
 }
 
 function renderObsidian2D(ctx, graph, positions, options = {}) {
