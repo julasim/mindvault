@@ -29,6 +29,37 @@ offline, ohne Server, ohne LLM-Aufruf, ohne Internet.
 3. Schau dir zuerst `demo-vault/` im Viewer an, um zu sehen, wie ein befüllter
    Vault aussieht.
 
+## Einrichtung per KI-Agent (Claude Code, Codex, ...)
+
+Du kannst dir die manuellen Schritte oben sparen und sie direkt von deinem
+KI-Coding-Agenten erledigen lassen. Füge folgenden Prompt 1:1 in Claude Code,
+Codex oder ein ähnliches Tool mit Datei-/Terminalzugriff ein:
+
+```
+Richte mindvault für mich ein:
+
+1. Klone https://github.com/julasim/mindvault in einen temporären Ordner.
+2. Kopiere darin vault-template/ an einen Ort meiner Wahl (frag mich nach dem
+   Zielpfad und einem passenden Namen, z.B. "Gedächtnis").
+3. Lege viewer/graph-viewer.html und viewer/graph-viewer.js daneben oder in
+   einen Unterordner meiner Wahl ab (die beiden Dateien müssen immer
+   zusammen im selben Ordner bleiben).
+4. Erkenne, in welchem Tool du gerade läufst, und richte die passende
+   Plattform-Integration ein (siehe README-Abschnitt "Einrichtung je
+   Plattform" im geklonten Repo) — z.B. bei Claude Code eine
+   .claude/settings.json mit SessionStart-Hook, der MEMORY.md lädt; bei
+   Cursor eine .cursorrules-Datei mit dem Inhalt von vault-template/CLAUDE.md.
+5. Räume den temporären Klon danach auf.
+6. Erkläre mir zum Schluss kurz, wo die Dateien liegen und wie ich den
+   Graph-Viewer öffne.
+
+Frag nach, wenn dir ein Zielordner oder eine Entscheidung fehlt — nichts
+erfinden oder annehmen.
+```
+
+Der Agent braucht Internet- und Dateisystemzugriff (Klonen des Repos,
+Dateien kopieren); alles danach läuft wie beschrieben komplett offline.
+
 ## Einrichtung je Plattform
 
 **Claude Code:** Lege im Vault-Ordner eine `.claude/settings.json` mit
