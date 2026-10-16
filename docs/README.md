@@ -54,13 +54,19 @@ Siehe `vault-template/CLAUDE.md` — Tags (`#tag`), Fälligkeiten
 
 ## Graph-Viewer
 
-`viewer/graph-viewer.html` ist eine einzelne, abhängigkeitsfreie Datei.
-Beim Öffnen wählst du deinen Vault-Ordner über den Button „Vault-Ordner
-öffnen" aus (Chrome/Edge: direkte Ordnerauswahl; Firefox/Safari: derselbe
-Button öffnet stattdessen einen nativen Ordner-Auswahldialog des
-Betriebssystems). Vier Ansichten stehen über die Werkzeugleiste zur Verfügung:
-Obsidian-2D, Baum, 3D-Kugel, Matrix. Dazu Suche, Tag-Filter, lokaler Graph
+`viewer/graph-viewer.html` + `viewer/graph-viewer.js` gehören zusammen —
+immer im selben Ordner halten, dann komplett abhängigkeitsfrei und offline
+(kein Server, kein CDN, kein Internet). Beim Öffnen wählst du deinen
+Vault-Ordner über den Button „Vault-Ordner öffnen" aus (Chrome/Edge: direkte
+Ordnerauswahl; Firefox/Safari: derselbe Button öffnet stattdessen einen
+nativen Ordner-Auswahldialog des Betriebssystems). Vier Ansichten stehen
+über die Tabs zur Verfügung: Obsidian-2D, Baum (ein-/ausklappbare Liste),
+3D-Kugel (mit Maus drehbar), Matrix. Dazu Suche, Tag-Filter, lokaler Graph
 (Klick auf einen Knoten), Zeitleiste und PNG-Export.
+
+Drei Designs stehen oben links zur Wahl: **Dunkel** (Standard), **Hell**
+(schlicht) und **Stark** (verspieltes HUD-Design). Die Wahl wird im Browser
+gemerkt.
 
 ## Obsidian-Kompatibilität
 

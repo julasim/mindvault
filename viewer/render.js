@@ -1,24 +1,97 @@
 // viewer/render.js
-const TAG_COLORS = ['#6B7280', '#B45309', '#15803D', '#B91C1C', '#2563EB', '#4B5563'];
+//
+// Drei Designs, umschaltbar über die Theme-Buttons in der Topbar
+// (shell.html regelt die CSS-Oberfläche über [data-theme], hier die
+// Canvas-Farben, die CSS nicht erreichen kann):
+// - dark:  das bisherige, an graphify angelehnte dunkle Design (Standard).
+// - light: helles, schlichtes Pendant mit gedämpften Farben, kein Glow.
+// - stark: verspieltes "Tony Stark"-HUD — Rot/Gold/Cyan, kräftiger Glow,
+//   zusätzlicher Zielring um jeden Knoten (siehe ringForTheme unten).
+const THEMES = {
+  dark: {
+    bg: '#0a0b10',
+    edge: 'rgba(232,233,238,0.18)',
+    label: '#9094a6',
+    highlightLabel: '#e8e9ee',
+    tagColors: ['#f2b84b', '#5b9bf5', '#5fd38d', '#e8678a', '#a97cf2', '#4fd1c5', '#f08a4b', '#7f8ff2'],
+    matrixCell: '#f2b84b',
+    glow: { base: 5, highlighted: 14 },
+    ring: false,
+  },
+  light: {
+    bg: '#ffffff',
+    edge: 'rgba(17,24,39,0.14)',
+    label: '#6b7280',
+    highlightLabel: '#111827',
+    tagColors: ['#2563eb', '#b45309', '#15803d', '#b91c1c', '#7c3aed', '#0f766e', '#c2410c', '#4338ca'],
+    matrixCell: '#2563eb',
+    glow: { base: 0, highlighted: 0 },
+    ring: false,
+  },
+  stark: {
+    bg: '#05070a',
+    edge: 'rgba(0,229,255,0.3)',
+    label: '#7fd4f5',
+    highlightLabel: '#ffffff',
+    tagColors: ['#ff3b30', '#ffd54a', '#00e5ff', '#ff8a3d', '#ffd700', '#36e2ff', '#ff2d78', '#f4ff36'],
+    matrixCell: '#ffd54a',
+    glow: { base: 10, highlighted: 24 },
+    ring: true,
+  },
+};
+
+let currentTheme = THEMES.dark;
 
 function colorForTag(tag) {
-  if (!tag) return '#888';
+  const colors = currentTheme.tagColors;
+  if (!tag) return currentTheme.label;
   let hash = 0;
-  for (const ch of tag) hash = (hash * 31 + ch.charCodeAt(0)) % TAG_COLORS.length;
-  return TAG_COLORS[hash];
+  for (const ch of tag) hash = (hash * 31 + ch.charCodeAt(0)) % colors.length;
+  return colors[hash];
+}
+
+function fillBackground(ctx) {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = currentTheme.bg;
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+}
+
+function glowingNode(ctx, x, y, radius, color, highlighted) {
+  // Stark-HUD: zusätzlicher, leicht pulsierend wirkender Zielring um jeden
+  // Knoten (zwei dünne, halbtransparente Kreise) — rein kosmetisch, ändert
+  // keine Trefferflächen (findNodeAt rechnet weiterhin mit `radius`).
+  if (currentTheme.ring) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.18;
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = highlighted ? currentTheme.glow.highlighted : currentTheme.glow.base;
+  ctx.fill();
+  ctx.shadowBlur = 0;
 }
 
 function renderObsidian2D(ctx, graph, positions, options = {}) {
   const { hoveredId = null, selectedId = null, camera = { x: 0, y: 0, scale: 1 } } = options;
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  fillBackground(ctx);
 
   ctx.save();
   ctx.translate(camera.x, camera.y);
   ctx.scale(camera.scale, camera.scale);
 
-  ctx.strokeStyle = '#555';
+  ctx.strokeStyle = currentTheme.edge;
   for (const e of graph.edges) {
     const s = positions[e.source], t = positions[e.target];
     if (!s || !t) continue;
@@ -32,60 +105,21 @@ function renderObsidian2D(ctx, graph, positions, options = {}) {
     const p = positions[n.id];
     if (!p) continue;
     const radius = 6 + Math.min(n.incoming, 10) * 1.5;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = colorForTag(n.tags?.[0]);
-    if (n.id === hoveredId || n.id === selectedId) {
-      ctx.shadowColor = '#111827';
-      ctx.shadowBlur = 12;
-    } else {
-      ctx.shadowBlur = 0;
-    }
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#374151';
+    const highlighted = n.id === hoveredId || n.id === selectedId;
+    glowingNode(ctx, p.x, p.y, radius, colorForTag(n.tags?.[0]), highlighted);
+    ctx.fillStyle = highlighted ? currentTheme.highlightLabel : currentTheme.label;
     ctx.font = '11px system-ui';
-    ctx.fillText(n.id, p.x + radius + 2, p.y + 3);
-  }
-
-  ctx.restore();
-}
-
-function renderTree(ctx, graph, positions, options = {}) {
-  const { camera = { x: 0, y: 0, scale: 1 } } = options;
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-  ctx.save();
-  ctx.translate(camera.x, camera.y);
-  ctx.scale(camera.scale, camera.scale);
-
-  ctx.strokeStyle = '#555';
-  for (const e of graph.edges) {
-    const s = positions[e.source], t = positions[e.target];
-    if (!s || !t) continue;
-    ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(t.x, t.y); ctx.stroke();
-  }
-  for (const n of graph.nodes) {
-    const p = positions[n.id];
-    if (!p) continue;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
-    ctx.fillStyle = colorForTag(n.tags?.[0]); ctx.fill();
-    ctx.fillStyle = '#374151'; ctx.font = '11px system-ui';
-    ctx.fillText(n.id, p.x + 10, p.y + 3);
+    ctx.fillText(n.id, p.x + radius + 4, p.y + 3);
   }
 
   ctx.restore();
 }
 
 function renderSphere(ctx, graph, positions) {
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  fillBackground(ctx);
   const cx = ctx.canvas.width / 2, cy = ctx.canvas.height / 2;
 
-  ctx.strokeStyle = '#D1D5DB';
+  ctx.strokeStyle = currentTheme.edge;
   for (const e of graph.edges) {
     const s = positions[e.source], t = positions[e.target];
     if (!s || !t) continue;
@@ -100,28 +134,23 @@ function renderSphere(ctx, graph, positions) {
     const p = positions[n.id];
     if (!p) continue;
     const radius = 6 * p.scale;
-    ctx.beginPath();
-    ctx.arc(cx + p.x, cy + p.y, Math.max(radius, 1), 0, Math.PI * 2);
-    ctx.fillStyle = colorForTag(n.tags?.[0]);
-    ctx.globalAlpha = Math.max(0.3, Math.min(1, p.scale));
-    ctx.fill();
+    ctx.globalAlpha = Math.max(0.35, Math.min(1, p.scale));
+    glowingNode(ctx, cx + p.x, cy + p.y, Math.max(radius, 1), colorForTag(n.tags?.[0]), false);
     ctx.globalAlpha = 1;
-    ctx.fillStyle = '#374151';
+    ctx.fillStyle = currentTheme.label;
     ctx.font = '11px system-ui';
-    ctx.fillText(n.id, cx + p.x + radius + 2, cy + p.y + 3);
+    ctx.fillText(n.id, cx + p.x + radius + 4, cy + p.y + 3);
   }
 }
 
 const MATRIX_MAX_NODES = 150;
 
 function renderMatrix(ctx, orderedIds, matrix) {
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  fillBackground(ctx);
   const size = orderedIds.length;
 
   if (size > MATRIX_MAX_NODES) {
-    ctx.fillStyle = '#374151';
+    ctx.fillStyle = currentTheme.label;
     ctx.font = '13px system-ui';
     ctx.textAlign = 'center';
     ctx.fillText(
@@ -137,12 +166,13 @@ function renderMatrix(ctx, orderedIds, matrix) {
   for (let i = 0; i < size; i++) {
     for (let j = 0; j < size; j++) {
       if (!matrix[i][j]) continue;
-      ctx.fillStyle = '#4B5563';
-      ctx.fillRect(70 + j * cell, 70 + i * cell, cell - 1, cell - 1);
+      ctx.fillStyle = currentTheme.matrixCell;
+      ctx.fillRect(90 + j * cell, 70 + i * cell, cell - 1, cell - 1);
     }
   }
-  ctx.fillStyle = '#374151'; ctx.font = '10px system-ui';
-  orderedIds.forEach((id, i) => ctx.fillText(id.length > 10 ? id.slice(0, 9) + '…' : id, 2, 70 + i * cell + cell / 1.5));
+  ctx.fillStyle = currentTheme.label;
+  ctx.font = '10px system-ui';
+  orderedIds.forEach((id, i) => ctx.fillText(id.length > 12 ? id.slice(0, 11) + '…' : id, 2, 70 + i * cell + cell / 1.5));
 }
 
 // offsetX/offsetY kompensieren Ansichten, die ihre Positionen nicht in
@@ -176,6 +206,8 @@ function localGraph(graph, selectedId, depth) {
 function initViewer() {
   const canvas = document.getElementById('graph-canvas');
   const ctx = canvas.getContext('2d');
+  const treeView = document.getElementById('tree-view');
+  const mainEl = document.getElementById('main');
 
   let currentFiles = new Map();
   let contentById = new Map();
@@ -186,6 +218,7 @@ function initViewer() {
   let localDepth = 1;
   let hoveredId = null;
   let positions = {};
+  let treeHierarchy = { roots: [], childrenOf: {}, parentOf: {} };
   let currentFiltered = { nodes: [], edges: [] };
   let matrixOrderedIds = [];
   let matrixData = [];
@@ -194,15 +227,15 @@ function initViewer() {
   let panStart = { x: 0, y: 0 };
   let dragStartClient = { x: 0, y: 0 };
   let didDrag = false;
+  let sphereManualRotation = 0;
 
-  // Die Kamera (Pan/Zoom) ist laut Task 17 nur für die 2D- und
-  // Baum-Ansicht gedacht (centerCameraOnRoot wird nur in deren Zweigen von
-  // recomputePositions aufgerufen). renderSphere zeichnet ohne
-  // Kamera-Transform; screenToWorld muss dort (und in der Matrix-Ansicht)
-  // also eine reine Passthrough-Funktion sein, sonst verschiebt ein in 2D/
-  // Baum zuvor verändertes camera-Objekt Hit-Tests in der Kugel-Ansicht.
+  // Die Kamera (Pan/Zoom) gilt nur für die 2D-Ansicht — die Baum-Ansicht ist
+  // seit dem graphify-inspirierten Redesign eine ein-/ausklappbare DOM-Liste
+  // statt einer Canvas-Zeichnung (siehe buildTreeDOM) und braucht daher
+  // keine Kamera-Transformation mehr. renderSphere/Matrix zeichnen ohnehin
+  // ohne Kamera-Transform.
   function screenToWorld(screenX, screenY) {
-    if (activeView !== '2d' && activeView !== 'tree') return { x: screenX, y: screenY };
+    if (activeView !== '2d') return { x: screenX, y: screenY };
     return { x: (screenX - camera.x) / camera.scale, y: (screenY - camera.y) / camera.scale };
   }
 
@@ -244,22 +277,84 @@ function initViewer() {
       positions = layoutForceDirected(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, height: canvas.height, iterations: 150 });
       centerCameraOnRoot(currentFiltered.nodes);
     } else if (activeView === 'tree') {
-      positions = layoutTree(currentFiltered.nodes, currentFiltered.edges, { width: canvas.width, levelHeight: 90, rootId: detectRootNode(currentFiltered.nodes)?.id });
-      centerCameraOnRoot(currentFiltered.nodes);
+      treeHierarchy = buildTreeHierarchy(currentFiltered.nodes, currentFiltered.edges, { rootId: detectRootNode(currentFiltered.nodes)?.id });
     } else if (activeView === 'sphere') {
       const root = detectRootNode(currentFiltered.nodes);
-      positions = layoutSphere(currentFiltered.nodes, { radius: 200, rotationY: Date.now() / 4000, rootId: root?.id ?? null });
+      positions = layoutSphere(currentFiltered.nodes, { radius: 200, rotationY: Date.now() / 6000 + sphereManualRotation, rootId: root?.id ?? null });
     } else if (activeView === 'matrix') {
       matrixOrderedIds = layoutMatrixOrder(currentFiltered.nodes);
       matrixData = buildAdjacencyMatrix(matrixOrderedIds, currentFiltered.edges);
     }
   }
 
+  function onNodeClick(id) {
+    showFileContent(id);
+    if (document.getElementById('local-graph-toggle').checked) {
+      selectedNodeId = id;
+      recomputeAndDraw();
+    }
+  }
+
+  function buildTreeDOM() {
+    treeView.textContent = '';
+    if (currentFiltered.nodes.length === 0) {
+      const empty = document.createElement('div');
+      empty.id = 'tree-empty';
+      empty.textContent = 'Kein Vault geladen — oben „Vault-Ordner öffnen" wählen.';
+      treeView.append(empty);
+      return;
+    }
+    const nodeById = new Map(currentFiltered.nodes.map(n => [n.id, n]));
+
+    function rowEl(id, isRoot) {
+      const node = nodeById.get(id);
+      const row = document.createElement('div');
+      row.className = 'tree-row' + (isRoot ? ' tree-row-root' : '') + (id === selectedNodeId ? ' tree-row-selected' : '');
+      const dot = document.createElement('span');
+      dot.className = 'tree-dot';
+      dot.style.background = colorForTag(node?.tags?.[0]);
+      const label = document.createElement('span');
+      label.className = 'tree-label';
+      label.textContent = id;
+      const count = document.createElement('span');
+      count.className = 'tree-count';
+      const childCount = (treeHierarchy.childrenOf[id] || []).length;
+      count.textContent = childCount ? String(childCount) : '';
+      row.append(dot, label, count);
+      row.addEventListener('click', (e) => { e.stopPropagation(); onNodeClick(id); });
+      return row;
+    }
+
+    function buildNode(id, isRoot) {
+      const children = treeHierarchy.childrenOf[id] || [];
+      if (children.length === 0) return rowEl(id, isRoot);
+      const details = document.createElement('details');
+      details.className = 'tree-group';
+      details.open = isRoot;
+      const summary = document.createElement('summary');
+      summary.append(rowEl(id, isRoot));
+      details.append(summary);
+      const childWrap = document.createElement('div');
+      childWrap.className = 'tree-children';
+      for (const childId of children) childWrap.append(buildNode(childId, false));
+      details.append(childWrap);
+      return details;
+    }
+
+    for (const rootId of treeHierarchy.roots) {
+      treeView.append(buildNode(rootId, true));
+    }
+  }
+
   function redraw() {
+    const isTree = activeView === 'tree';
+    canvas.style.display = isTree ? 'none' : 'block';
+    treeView.style.display = isTree ? 'block' : 'none';
+
     if (activeView === '2d') {
       renderObsidian2D(ctx, currentFiltered, positions, { hoveredId, selectedId: selectedNodeId, camera });
     } else if (activeView === 'tree') {
-      renderTree(ctx, currentFiltered, positions, { camera });
+      buildTreeDOM();
     } else if (activeView === 'sphere') {
       renderSphere(ctx, currentFiltered, positions);
     } else if (activeView === 'matrix') {
@@ -287,7 +382,10 @@ function initViewer() {
       });
       checkbox.dataset.tag = tag;
       const count = currentGraph.nodes.filter(n => n.tags.includes(tag)).length;
-      label.append(checkbox, document.createTextNode(`#${tag} (${count})`));
+      const dot = document.createElement('span');
+      dot.className = 'tree-dot';
+      dot.style.background = colorForTag(tag);
+      label.append(checkbox, dot, document.createTextNode(`#${tag} (${count})`));
       container.append(label);
     }
   }
@@ -382,10 +480,6 @@ function initViewer() {
       contentById.set(filename.replace(/\.md$/i, ''), content);
     }
     renderTagFilters();
-    // Toolbar kann durch renderTagFilters wachsen (mehr Tag-Checkboxen,
-    // flex-wrap auf eine zusätzliche Zeile) — Canvas muss neu vermessen
-    // werden, bevor recomputeAndDraw mit der neuen Höhe zeichnet, sonst
-    // bleibt die Canvas auf die alte (kürzere) Toolbar-Höhe skaliert.
     resizeCanvas();
     setupTimeline();
     recomputeAndDraw();
@@ -442,15 +536,13 @@ function initViewer() {
     // Knoten-Positionen im selben Koordinatensinn wie die anderen
     // Ansichten — Hit-Testing hier wäre nicht wohldefiniert, also kein
     // Hover-Highlight in dieser Ansicht.
-    if (activeView === 'matrix') {
+    if (activeView === 'matrix' || activeView === 'sphere') {
       if (hoveredId !== null) { hoveredId = null; redraw(); }
       return;
     }
     const rect = canvas.getBoundingClientRect();
-    const offsetX = activeView === 'sphere' ? canvas.width / 2 : 0;
-    const offsetY = activeView === 'sphere' ? canvas.height / 2 : 0;
     const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-    hoveredId = findNodeAt(positions, world.x, world.y, 10 / camera.scale, offsetX, offsetY);
+    hoveredId = findNodeAt(positions, world.x, world.y, 10 / camera.scale);
     redraw();
   });
 
@@ -458,19 +550,16 @@ function initViewer() {
     // Browser lösen nach mousedown+mouseup immer ein click-Event aus, auch
     // wenn sich die Maus dazwischen bewegt hat (ein Drag ist dem DOM
     // zufolge trotzdem ein Klick). Ohne diese Prüfung würde das Loslassen
-    // nach einem Pan hier landen und (da unter dem Cursor kein Knoten
-    // liegt) recomputeAndDraw() auslösen, was die Kamera über
-    // centerCameraOnRoot sofort auf die alte Position zurückspringen lässt.
+    // nach einem Pan/Dreh hier landen und recomputeAndDraw() auslösen.
     if (didDrag) { didDrag = false; return; }
-    // Siehe Kommentar oben bei mousemove: Klicks in der Matrix-Ansicht
-    // dürfen nicht auf veraltete/falsche positions-Daten einer anderen
-    // Ansicht treffen, also bewusst kein findNodeAt-Aufruf hier.
-    if (activeView === 'matrix') return;
+    // Siehe Kommentar oben bei mousemove: Klicks in Matrix/3D-Kugel dürfen
+    // nicht auf veraltete/falsche positions-Daten treffen (Matrix) bzw.
+    // haben kein verlässliches Hit-Testing in der verzerrten Perspektive
+    // (Kugel) — dort nur Drehen per Drag, kein Klick-Handling.
+    if (activeView === 'matrix' || activeView === 'sphere') return;
     const rect = canvas.getBoundingClientRect();
-    const offsetX = activeView === 'sphere' ? canvas.width / 2 : 0;
-    const offsetY = activeView === 'sphere' ? canvas.height / 2 : 0;
     const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-    const id = findNodeAt(positions, world.x, world.y, 10 / camera.scale, offsetX, offsetY);
+    const id = findNodeAt(positions, world.x, world.y, 10 / camera.scale);
 
     if (!id) {
       const hadSelection = Boolean(selectedNodeId) || document.getElementById('info-panel').style.display !== 'none';
@@ -480,11 +569,7 @@ function initViewer() {
       return;
     }
 
-    showFileContent(id);
-    if (document.getElementById('local-graph-toggle').checked) {
-      selectedNodeId = id;
-      recomputeAndDraw();
-    }
+    onNodeClick(id);
   });
 
   function showFileContent(id) {
@@ -511,10 +596,11 @@ function initViewer() {
   });
 
   // Wheel-Zoom: skaliert um die Mausposition (nicht um den Ursprung), damit
-  // der Punkt unter dem Cursor beim Zoomen stehen bleibt.
+  // der Punkt unter dem Cursor beim Zoomen stehen bleibt. Nur in der
+  // 2D-Ansicht relevant (Baum ist DOM, Kugel/Matrix zoomen nicht).
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    if (activeView !== '2d' && activeView !== 'tree') return;
+    if (activeView !== '2d') return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
     const before = screenToWorld(mx, my);
@@ -525,47 +611,88 @@ function initViewer() {
     redraw();
   }, { passive: false });
 
-  // Drag-Pan auf leerer Canvas-Fläche. Ein Klick auf einen Knoten soll
-  // weiterhin die Auswahl auslösen (siehe click-Handler oben), daher
-  // startet das Pannen hier nur, wenn unter dem Mausdruck kein Knoten liegt.
+  // Drag-Pan auf leerer Canvas-Fläche (2D) bzw. Drag-Drehen der 3D-Kugel.
+  // Ein Klick auf einen Knoten soll weiterhin die Auswahl auslösen (siehe
+  // click-Handler oben), daher startet das Pannen in der 2D-Ansicht nur,
+  // wenn unter dem Mausdruck kein Knoten liegt.
   canvas.addEventListener('mousedown', (e) => {
     didDrag = false;
-    if (activeView !== '2d' && activeView !== 'tree') return;
-    const rect = canvas.getBoundingClientRect();
-    const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-    if (findNodeAt(positions, world.x, world.y, 10 / camera.scale)) return;
+    if (activeView !== '2d' && activeView !== 'sphere') return;
+    if (activeView === '2d') {
+      const rect = canvas.getBoundingClientRect();
+      const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+      if (findNodeAt(positions, world.x, world.y, 10 / camera.scale)) return;
+      panStart = { x: e.clientX - camera.x, y: e.clientY - camera.y };
+    }
     isPanning = true;
-    panStart = { x: e.clientX - camera.x, y: e.clientY - camera.y };
     dragStartClient = { x: e.clientX, y: e.clientY };
   });
   window.addEventListener('mousemove', (e) => {
     if (!isPanning) return;
     if (!didDrag && Math.hypot(e.clientX - dragStartClient.x, e.clientY - dragStartClient.y) > 3) didDrag = true;
-    camera.x = e.clientX - panStart.x;
-    camera.y = e.clientY - panStart.y;
-    redraw();
+    if (activeView === '2d') {
+      camera.x = e.clientX - panStart.x;
+      camera.y = e.clientY - panStart.y;
+      redraw();
+    } else if (activeView === 'sphere') {
+      sphereManualRotation += (e.clientX - dragStartClient.x) * 0.01;
+      dragStartClient = { x: e.clientX, y: e.clientY };
+      recomputeAndDraw();
+    }
   });
   window.addEventListener('mouseup', () => { isPanning = false; });
 
   document.querySelectorAll('[data-view]').forEach(btn => {
-    btn.addEventListener('click', () => { activeView = btn.dataset.view; recomputeAndDraw(); });
+    btn.addEventListener('click', () => {
+      activeView = btn.dataset.view;
+      document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b === btn));
+      recomputeAndDraw();
+    });
+  });
+  document.querySelector('[data-view="2d"]')?.classList.add('active');
+
+  // Theme-Umschalter: dunkel (Standard) / hell / "Stark" (verspieltes HUD).
+  // CSS übernimmt die Oberfläche über [data-theme] auf <html> (siehe
+  // shell.html), hier zusätzlich die Canvas-Farben (currentTheme), die CSS
+  // nicht erreicht. localStorage ist rein eine Komfort-Erinnerung fürs
+  // nächste Öffnen — schlägt sie fehl (z.B. privates Fenster), bleibt es
+  // einfach beim Standard-Theme, kein Blocker.
+  function applyTheme(name) {
+    const theme = THEMES[name] ? name : 'dark';
+    currentTheme = THEMES[theme];
+    document.documentElement.dataset.theme = theme;
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
+    try { localStorage.setItem('mindvault-theme', theme); } catch { /* z.B. privates Fenster — kein Blocker */ }
+    redraw();
+    renderTagFilters();
+  }
+
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
   });
 
+  let savedTheme = 'dark';
+  try { savedTheme = localStorage.getItem('mindvault-theme') || 'dark'; } catch { /* ignorieren, Standard bleibt */ }
+  applyTheme(savedTheme);
+
   document.getElementById('export-png').addEventListener('click', () => {
+    if (activeView === 'tree') return; // Baum ist DOM, kein Canvas-Inhalt zum Exportieren.
     const link = document.createElement('a');
     link.download = `graph-${activeView}-${new Date().toISOString().slice(0, 10)}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   });
 
-  // Canvas füllt den verfügbaren Platz unterhalb der Toolbar, statt einer
-  // festen Größe — resize-Events kommen sehr häufig (z.B. beim Ziehen am
-  // Fensterrand), daher wie die Suche debounct, um nicht bei jedem
+  // Canvas füllt den verfügbaren Platz im Hauptbereich (#main, neben der
+  // Sidebar) statt des ganzen Fensters. Eine Mindestgröße fängt den Fall ab,
+  // dass #main beim allerersten Messen noch 0×0 meldet (z.B. Fenster noch
+  // nicht fertig layoutet) — ohne Fallback bliebe der Viewer sonst leer/weiß
+  // ohne jede Fehlermeldung. resize-Events kommen sehr häufig (z.B. beim
+  // Ziehen am Fensterrand), daher wie die Suche debounct, um nicht bei jedem
   // Zwischenschritt die teure Layout-Neuberechnung anzustoßen.
   function resizeCanvas() {
-    const toolbarHeight = document.getElementById('toolbar').offsetHeight;
-    canvas.width = window.innerWidth;
-    canvas.height = Math.max(200, window.innerHeight - toolbarHeight);
+    canvas.width = Math.max(300, mainEl.clientWidth);
+    canvas.height = Math.max(200, mainEl.clientHeight);
   }
   resizeCanvas();
   recomputeAndDraw();

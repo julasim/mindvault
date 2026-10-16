@@ -38,6 +38,7 @@ Gemini, Cursor, Claude.ai-Projekte mit Projektwissen).
 ## Graph-Ansicht
 
 Öffne `graph-viewer.html` per Doppelklick, um die Verknüpfungen zwischen
-allen Dateien visuell zu sehen — läuft offline, ohne LLM. Die Datei ist
-eine einzelne, abhängigkeitsfreie Seite; lege sie dort ab, wo es für dich
-am praktischsten ist, z.B. neben deinem Vault-Ordner.
+allen Dateien visuell zu sehen — läuft offline, ohne LLM. Der Viewer
+besteht aus zwei Dateien (`graph-viewer.html` + `graph-viewer.js`), die
+immer zusammen im selben Ordner liegen müssen; lege beide dort ab, wo es
+für dich am praktischsten ist, z.B. neben deinem Vault-Ordner.

@@ -14,3 +14,6 @@ Login-Bereich nutzt den bestehenden Auth-Dienst aus dem Webshop-Projekt.
 
 - [[entscheidungen]]
 - [[projekte/webshop-relaunch]]
+- [[projekte/api-gateway]]
+- [[projekte/support-chatbot]]
+- [[projekte/onboarding-flow]]

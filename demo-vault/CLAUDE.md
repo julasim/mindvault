@@ -39,4 +39,5 @@ Gemini, Cursor, Claude.ai-Projekte mit Projektwissen).
 
 Öffne `graph-viewer.html` (im übergeordneten Ordner oder neben diesem
 Vault) per Doppelklick, um die Verknüpfungen zwischen allen Dateien
-visuell zu sehen — läuft offline, ohne LLM.
+visuell zu sehen — läuft offline, ohne LLM. `graph-viewer.js` muss im
+selben Ordner liegen bleiben.

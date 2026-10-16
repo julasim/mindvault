@@ -42,9 +42,23 @@ Einschränkung auf eine Berufsgruppe in v1.
    Datei bekommt einen "Verwandte Einträge"-Abschnitt für eingehende Links,
    vom LLM gepflegt.
 5. **Graph-Viewer — das Alleinstellungsmerkmal:**
-   - Eine einzelne, abhängigkeitsfreie HTML-Datei. Nutzer öffnet sie per
+   - Zwei abhängigkeitsfreie, lokale Dateien (`graph-viewer.html` +
+     `graph-viewer.js`, immer im selben Ordner) statt einer einzigen
+     Datei — bewusste Entscheidung für eine klarere Struktur (wie ein
+     einfaches, lesbares Webprojekt), weiterhin kein Server, kein CDN,
+     kein Internet nötig. Nutzer öffnet `graph-viewer.html` per
      Doppelklick, wählt den Vault-Ordner (File System Access API /
      Drag&Drop-Fallback für ältere Browser).
+   - Topbar mit Ansichts-Tabs, Sidebar mit Info-/Zeitleiste-/Tag-Panels,
+     statt des ursprünglichen hellen Sima-Designs — bewusste Korrektur
+     nach Nutzer-Feedback, dass die erste, helle Fassung "schrecklich
+     aussieht". Weiterhin reines Canvas/DOM, keine Three.js/CDN-
+     Abhängigkeit wie bei graphifys echter 3D-Ansicht.
+   - **Drei umschaltbare Designs** (Topbar-Buttons, Wahl in `localStorage`
+     gemerkt): **Dunkel** (Standard, an graphifys Viewer angelehnt,
+     glühende Knoten), **Hell** (schlicht, gedämpft, kein Glow), **Stark**
+     (verspieltes Iron-Man/HUD-Design: Rot/Gold/Cyan, Zielring um jeden
+     Knoten, pulsierender Punkt im Branding, Scanline-Textur).
    - **Muss ohne LLM-Aufruf funktionieren** — reines JavaScript parst die
      `.md`-Dateien nach `[[Links]]` und `#Tags` und zeichnet den Graphen
      clientseitig. Keine Server-Anfrage, kein API-Key, kein Internet nötig.

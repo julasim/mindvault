@@ -13,3 +13,5 @@ Neues Checkout-Layout steht, Zahlungsanbieter-Anbindung offen.
 ## Verwandte Einträge
 
 - [[projekte/kundenportal]]
+- [[projekte/zahlungsanbindung]]
+- [[projekte/accessibility-audit]]
