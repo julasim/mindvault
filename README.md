@@ -100,6 +100,14 @@ npm run build        # erzeugt viewer/graph-viewer.{html,js} neu
 Node.js-Abhängigkeiten existieren ausschließlich zur Entwicklungszeit (Tests,
 Build) — das Ausliefer-Artefakt selbst ist zwei abhängigkeitsfreie Dateien.
 
+## Weitere Dokumentation
+
+- [docs/ANLEITUNG.md](docs/ANLEITUNG.md) — ausführliche, nicht-technische
+  Anleitung für Nutzer ohne Programmiervorkenntnisse.
+- [docs/LLM-ANLEITUNG.md](docs/LLM-ANLEITUNG.md) — ausführliche
+  Pflegeanleitung für KI-Assistenten (Grundlage für `vault-template/CLAUDE.md`,
+  auch als Referenz für eigene Skills/Implementierungen).
+
 ## Lizenz
 
 MIT — siehe [LICENSE](LICENSE).
