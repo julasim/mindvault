@@ -88,9 +88,13 @@ Weitergabe/kein Weiterverkauf).
 ## Offene Punkte / nächste Schritte
 
 - **Unverifiziert:** der native Ordner-Dialog (`showDirectoryPicker`) beim
-  echten Doppelklick-Öffnen über `file://` — die Sandbox hier kann das
-  nicht zuverlässig prüfen (rendert `file://` als `data:`-Snapshot). Vor
-  Verkauf einmal selbst in Chrome/Edge testen.
+  echten Doppelklick-Öffnen über `file://` — **kategorisch nicht
+  automatisiert testbar** (2026-10-16 bestätigt: das eingebaute
+  Browser-Pane kann `file://`-URLs grundsätzlich nicht öffnen, nur als
+  nicht-interaktiven `data:`-Snapshot rendern — kein Werkzeugaufruf hier
+  wird das je ändern). Nur manuell durch Julius selbst in Chrome/Edge
+  prüfbar: Doppelklick auf `graph-viewer.html`, „Vault-Ordner öffnen",
+  `demo-vault` wählen, Graph sollte laden.
 - Cross-Browser (Firefox/Safari-Fallback) noch nicht real getestet.
 - Kein Auslieferungspaket: `apps/mindvault/` ist aktuell ein kompletter
   Entwicklerordner (PLAN.md, package.json, src/, test/) — Käufer sollten
