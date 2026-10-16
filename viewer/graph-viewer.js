@@ -78,6 +78,19 @@ function layoutForceDirected(nodes, edges, options = {}) {
   const iterations = options.iterations ?? 200;
   const repelStrength = options.repelStrength ?? 2000;
   const linkDistance = options.linkDistance ?? 80;
+  // Die Abstoßung ist O(n²) pro Iteration — bei einem über Jahre
+  // gewachsenen Vault (mehrere Tausend Dateien) würde das feste
+  // Iterations-Limit den Tab für Sekunden bis Minuten einfrieren. Ein
+  // Zeitbudget bricht die Simulation vorzeitig ab, sobald die Gesamtzeit
+  // überschritten ist — bewusst OHNE einen höheren Mindest-Iterationen-
+  // Boden (minIterations bleibt winzig): bei sehr großen Vaults kostet
+  // schon eine einzelne Iteration mehrere Hundert Millisekunden, ein
+  // fixer Boden wie "mindestens 30 Iterationen" würde das Budget dann
+  // selbst ad absurdum führen (30 × 600ms ≈ 18s). `now`/`timeBudgetMs`
+  // sind für Tests einstellbar.
+  const timeBudgetMs = options.timeBudgetMs ?? 1200;
+  const minIterations = Math.min(iterations, options.minIterations ?? 1);
+  const now = options.now ?? (() => Date.now());
 
   const positions = new Map();
   nodes.forEach((n, i) => {
@@ -90,7 +103,9 @@ function layoutForceDirected(nodes, edges, options = {}) {
     });
   });
 
+  const startTime = now();
   for (let iter = 0; iter < iterations; iter++) {
+    if (iter >= minIterations && now() - startTime > timeBudgetMs) break;
     for (const n of nodes) {
       const p = positions.get(n.id);
       let fx = 0, fy = 0;

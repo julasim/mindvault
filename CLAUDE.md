@@ -8,7 +8,7 @@ pflegen. Stufe 1 reicht meist; Stufe 2 nur lesen, wenn die Aufgabe es verlangt.
 
 # mindvault — Vault Graph Viewer (Verkaufsprodukt)
 
-Zuletzt aktualisiert: 2026-10-15
+Zuletzt aktualisiert: 2026-10-16
 
 ## Worum geht's
 
@@ -24,7 +24,7 @@ veröffentlicht, Arbeitsname `mindvault`.
 **Kern:** Vault-Template + Markdown-Parser (Tags `#tag`, Fälligkeit
 `Fällig: YYYY-MM-DD`, `[[Links]]` inkl. Alias/Überschrift/Unicode/
 case-insensitiv) — reine, abhängigkeitsfreie JS-Module, Node-`node:test`-TDD
-(52/52 grün).
+(54/54 grün).
 
 **Vier Graph-Ansichten:**
 - Obsidian-2D (Kraft-Graph, Zoom/Pan), 3D-Kugel (Fibonacci-Verteilung, per
@@ -40,6 +40,19 @@ case-insensitiv) — reine, abhängigkeitsfreie JS-Module, Node-`node:test`-TDD
 **Viewer-UI:** Klick-Info-Panel (Sidebar), lokaler Graph mit Tiefen-Regler,
 Tag-Filter mit Zählern, Volltextsuche, Export als PNG, Zeitleiste
 (abspielbar) aus `log/INDEX.md`, Root-Knoten-Erkennung.
+
+**Performance (2026-10-16 behoben):** Leistungstest mit synthetischen Vaults
+bis 6.000 Dateien zeigte, dass `layoutForceDirected` (Obsidian-2D-Ansicht,
+O(n²) pro Iteration) den Tab ab ~1.000 Dateien für Sekunden, ab 3.000+ für
+bis zu zwei Minuten einfror — alle anderen Ansichten/Filter/Suche blieben
+linear und unter 50ms. Fix: ein Zeitbudget (`timeBudgetMs`, Standard 1200ms)
+bricht die Simulation nach jeder Iteration ab, sobald es überschritten ist —
+bewusst ohne nennenswerten Iterations-Mindestboden (`minIterations` Standard
+1), weil ein fixer Boden wie "mindestens 30 Iterationen" bei sehr großen
+Vaults (wo eine einzelne Iteration schon hunderte ms kostet) das Budget
+selbst aushebeln würde. Ergebnis: 6.000 Dateien jetzt 1,8s statt 119s
+(~68× schneller), alle Größen bleiben nahe am Budget. Zwei Regressionstests
+in `test/layout-2d.test.js` sichern das ab.
 
 **Styling:** drei umschaltbare Designs (Topbar-Buttons „Dunkel“/„Hell“/
 „Stark“, Wahl in `localStorage` gemerkt), ersetzt das ursprüngliche helle
@@ -134,6 +147,12 @@ Weitergabe/kein Weiterverkauf).
 
 ## Änderungslog
 
+- 2026-10-16 — Gründlicher Test (Funktions-, Leistungstest bis 6.000
+  Dateien, Browser-Test aller vier Ansichten/drei Designs mit dem
+  Demo-Vault): Leistungsfund `layoutForceDirected` (O(n²), fror bei großen
+  Vaults den Tab ein) behoben per Zeitbudget, zwei Regressionstests
+  ergänzt, Ausliefer-Artefakt neu gebaut. Redesign-Stand vom 15.10. zuvor
+  committet (`a1af807`).
 - 2026-10-15 (später) — Drei umschaltbare Designs ergänzt (Dunkel/Hell/
   Stark-HUD), `THEMES`-Objekt in `render.js` + `[data-theme]`-CSS-Tokens in
   `shell.html`, Wahl in `localStorage` gemerkt.
