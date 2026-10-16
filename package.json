@@ -1,5 +1,7 @@
 {
   "name": "mindvault",
+  "description": "Dateibasiertes Markdown-Gedächtnis für jedes LLM, mit offline-fähigem Graph-Viewer.",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
