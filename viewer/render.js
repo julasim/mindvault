@@ -227,7 +227,8 @@ function initViewer() {
   let panStart = { x: 0, y: 0 };
   let dragStartClient = { x: 0, y: 0 };
   let didDrag = false;
-  let sphereManualRotation = 0;
+  let sphereManualRotationY = 0;
+  let sphereManualRotationX = 0;
 
   // Die Kamera (Pan/Zoom) gilt nur für die 2D-Ansicht — die Baum-Ansicht ist
   // seit dem graphify-inspirierten Redesign eine ein-/ausklappbare DOM-Liste
@@ -280,7 +281,12 @@ function initViewer() {
       treeHierarchy = buildTreeHierarchy(currentFiltered.nodes, currentFiltered.edges, { rootId: detectRootNode(currentFiltered.nodes)?.id });
     } else if (activeView === 'sphere') {
       const root = detectRootNode(currentFiltered.nodes);
-      positions = layoutSphere(currentFiltered.nodes, { radius: 200, rotationY: Date.now() / 6000 + sphereManualRotation, rootId: root?.id ?? null });
+      positions = layoutSphere(currentFiltered.nodes, {
+        radius: 200,
+        rotationY: Date.now() / 6000 + sphereManualRotationY,
+        rotationX: sphereManualRotationX,
+        rootId: root?.id ?? null,
+      });
     } else if (activeView === 'matrix') {
       matrixOrderedIds = layoutMatrixOrder(currentFiltered.nodes);
       matrixData = buildAdjacencyMatrix(matrixOrderedIds, currentFiltered.edges);
@@ -635,7 +641,11 @@ function initViewer() {
       camera.y = e.clientY - panStart.y;
       redraw();
     } else if (activeView === 'sphere') {
-      sphereManualRotation += (e.clientX - dragStartClient.x) * 0.01;
+      // Horizontal ziehen dreht um Y (Gieren), vertikal um X (Nicken) —
+      // zusammen erreicht man jeden Blickwinkel auf die Kugel, nicht nur
+      // die Drehung um die senkrechte Achse.
+      sphereManualRotationY += (e.clientX - dragStartClient.x) * 0.01;
+      sphereManualRotationX += (e.clientY - dragStartClient.y) * 0.01;
       dragStartClient = { x: e.clientX, y: e.clientY };
       recomputeAndDraw();
     }

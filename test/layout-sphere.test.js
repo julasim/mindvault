@@ -18,11 +18,28 @@ test('alle Knoten liegen exakt auf dem angegebenen Kugelradius', () => {
   }
 });
 
-test('Rotation verändert die projizierte x-Koordinate', () => {
+test('Rotation um Y verändert die projizierte x-Koordinate', () => {
   const nodes = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
   const p0 = layoutSphere(nodes, { radius: 100, rotationY: 0 });
   const p1 = layoutSphere(nodes, { radius: 100, rotationY: Math.PI / 2 });
   assert.notEqual(p0.a.x, p1.a.x);
+});
+
+test('Rotation um X verändert die projizierte y-Koordinate (vertikales Ziehen dreht ebenfalls)', () => {
+  const nodes = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  const p0 = layoutSphere(nodes, { radius: 100, rotationX: 0 });
+  const p1 = layoutSphere(nodes, { radius: 100, rotationX: Math.PI / 2 });
+  assert.notEqual(p0.a.y, p1.a.y);
+});
+
+test('kombinierte X/Y-Rotation hält jeden Knoten weiterhin exakt auf dem Kugelradius', () => {
+  const nodes = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+  const positions = layoutSphere(nodes, { radius: 100, rotationX: 0.7, rotationY: 1.3 });
+  for (const id of ['a', 'b', 'c', 'd']) {
+    const p = positions[id];
+    const dist = Math.sqrt(p.x3 ** 2 + p.y3 ** 2 + p.z3 ** 2);
+    assert.ok(Math.abs(dist - 100) < 0.001);
+  }
 });
 
 test('leerer Knoten-Satz liefert leeres Ergebnis ohne Fehler', () => {

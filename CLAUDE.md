@@ -24,11 +24,13 @@ veröffentlicht, Arbeitsname `mindvault`.
 **Kern:** Vault-Template + Markdown-Parser (Tags `#tag`, Fälligkeit
 `Fällig: YYYY-MM-DD`, `[[Links]]` inkl. Alias/Überschrift/Unicode/
 case-insensitiv) — reine, abhängigkeitsfreie JS-Module, Node-`node:test`-TDD
-(54/54 grün).
+(56/56 grün).
 
 **Vier Graph-Ansichten:**
 - Obsidian-2D (Kraft-Graph, Zoom/Pan), 3D-Kugel (Fibonacci-Verteilung, per
-  Maus drehbar), Matrix (Obergrenze 150 Knoten) — Canvas-Renderer.
+  Maus um **beide** Achsen frei drehbar — horizontal Gieren/Y, vertikal
+  Nicken/X, seit 2026-10-16; vorher nur Y), Matrix (Obergrenze 150 Knoten)
+  — Canvas-Renderer.
 - Baum — seit dem 2026-10-15-Redesign eine ein-/ausklappbare DOM-Liste
   (`<details>`/`<summary>`, an graphifys Baum-Tab angelehnt) statt
   Canvas-Pixelpositionen. Grund: `detectRootNode` bevorzugt isolierte
@@ -151,6 +153,11 @@ Weitergabe/kein Weiterverkauf).
 
 ## Änderungslog
 
+- 2026-10-16 (später) — 3D-Kugel: Drehung auf beide Achsen erweitert
+  (`layout-sphere.js` wendet jetzt `rotationX` zusätzlich zu `rotationY`
+  an, vertikales Ziehen in `render.js` steuert `sphereManualRotationX`) —
+  vorher drehte nur horizontales Ziehen die Kugel. Zwei Regressionstests
+  ergänzt (56/56 grün), Ausliefer-Artefakt neu gebaut.
 - 2026-10-16 — Gründlicher Test (Funktions-, Leistungstest bis 6.000
   Dateien, Browser-Test aller vier Ansichten/drei Designs mit dem
   Demo-Vault): Leistungsfund `layoutForceDirected` (O(n²), fror bei großen
