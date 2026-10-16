@@ -6,6 +6,21 @@ ergänzt um einen eigenständigen, LLM-unabhängigen Graph-Viewer — analog zu
 Obsidians Graph-Ansicht, aber ohne Obsidian-Installation. Läuft komplett
 offline, ohne Server, ohne LLM-Aufruf, ohne Internet.
 
+![Obsidian-2D-Ansicht](docs/images/01-obsidian-2d-dunkel.png)
+
+<details>
+<summary>Weitere Ansichten (Baum, 3D-Kugel, Matrix, Stark-Design)</summary>
+
+| Baum | Matrix |
+|---|---|
+| ![Baum-Ansicht](docs/images/02-baum-dunkel.jpg) | ![Matrix-Ansicht](docs/images/04-matrix-dunkel.jpg) |
+
+| 3D-Kugel (Dunkel) | 3D-Kugel (Stark-HUD-Design) |
+|---|---|
+| ![3D-Kugel, Dunkel](docs/images/03-3d-kugel-dunkel.jpg) | ![3D-Kugel, Stark-Design](docs/images/05-3d-kugel-stark.jpg) |
+
+</details>
+
 ## Schnellstart
 
 1. Kopiere `vault-template/` an einen Ort deiner Wahl, z.B. `mein-gedaechtnis/`.
