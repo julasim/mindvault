@@ -1,6 +1,7 @@
 # PRD — mindvault (Arbeitsname)
 
-Stand: 2026-10-11 · Status: Entwurf, wartet auf Freigabe
+Stand: 2026-10-16 · Status: Kern fertig und getestet (56/56 Tests),
+Verkaufsvorbereitung (Produktname, Plattform, Auslieferungspaket) offen
 
 ## Eine-Satz-Zusammenfassung
 
@@ -63,9 +64,13 @@ Einschränkung auf eine Berufsgruppe in v1.
      `.md`-Dateien nach `[[Links]]` und `#Tags` und zeichnet den Graphen
      clientseitig. Keine Server-Anfrage, kein API-Key, kein Internet nötig.
    - Vier Ansichten mit Umschalter: **Obsidian-2D** (Kraft-Graph), **Baum**,
-     **3D-Kugel**, **Matrix** — analog zu den vier Ansichten aus Julius'
-     bestehendem graphify-HTML-Viewer-Patch, hier aber neu und eigenständig
-     gebaut (keine Laufzeit-Abhängigkeit von graphify/Claude Code).
+     **3D-Kugel** (per Maus frei drehbar — horizontal und vertikal, nicht
+     nur um die senkrechte Achse), **Matrix** — analog zu den vier
+     Ansichten aus Julius' bestehendem graphify-HTML-Viewer-Patch, hier
+     aber neu und eigenständig gebaut (keine Laufzeit-Abhängigkeit von
+     graphify/Claude Code).
+   - Knoten mit radialem Farbverlauf und dünner Kontur (Glaskugel-Optik)
+     statt flacher Einfarb-Füllung, in allen drei Designs.
    - Obsidian-2D-Ansicht im Detail (Vorbild: offizielle Obsidian-Graph-
      Dokumentation):
      - Knoten = Dateien, Linien = Links, Knotengröße nach Anzahl

@@ -61,7 +61,8 @@ Vault-Ordner über den Button „Vault-Ordner öffnen" aus (Chrome/Edge: direkte
 Ordnerauswahl; Firefox/Safari: derselbe Button öffnet stattdessen einen
 nativen Ordner-Auswahldialog des Betriebssystems). Vier Ansichten stehen
 über die Tabs zur Verfügung: Obsidian-2D, Baum (ein-/ausklappbare Liste),
-3D-Kugel (mit Maus drehbar), Matrix. Dazu Suche, Tag-Filter, lokaler Graph
+3D-Kugel (mit Maus in alle Richtungen frei drehbar — horizontal und
+vertikal ziehen), Matrix. Dazu Suche, Tag-Filter, lokaler Graph
 (Klick auf einen Knoten), Zeitleiste und PNG-Export.
 
 Drei Designs stehen oben links zur Wahl: **Dunkel** (Standard), **Hell**
