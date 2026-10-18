@@ -739,8 +739,17 @@ function initViewer() {
     }
   }
 
+  // Zentrale Stelle für Ansagen an Screenreader-Nutzer (aria-live-Region in
+  // shell.html) — z.B. bei Knoten-Auswahl, Ansichtswechsel, Vault-Ladung.
+  // Fehlt das Element aus irgendeinem Grund, einfach nichts tun statt zu werfen.
+  function announce(text) {
+    const live = document.getElementById('a11y-live');
+    if (live) live.textContent = text;
+  }
+
   function onNodeClick(id) {
     showFileContent(id);
+    announce('Datei geöffnet: ' + id);
     if (document.getElementById('local-graph-toggle').checked) {
       selectedNodeId = id;
       recomputeAndDraw();
@@ -764,6 +773,7 @@ function initViewer() {
       row.className = 'tree-row' + (isRoot ? ' tree-row-root' : '') + (id === selectedNodeId ? ' tree-row-selected' : '');
       const dot = document.createElement('span');
       dot.className = 'tree-dot';
+      dot.setAttribute('aria-hidden', 'true');
       dot.style.background = colorForTag(node?.tags?.[0]);
       const label = document.createElement('span');
       label.className = 'tree-label';
@@ -773,7 +783,21 @@ function initViewer() {
       const childCount = (treeHierarchy.childrenOf[id] || []).length;
       count.textContent = childCount ? String(childCount) : '';
       row.append(dot, label, count);
+      // Tastaturzugriff: die Baum-Ansicht ist die einzige der vier Ansichten,
+      // die für Screenreader zugänglich sein soll (siehe sr-only-Hinweis in
+      // shell.html) — Zeilen müssen deshalb per Tab erreichbar und per
+      // Enter/Leertaste auslösbar sein, nicht nur per Maus-Klick.
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+      row.setAttribute('aria-label', id + (childCount ? `, ${childCount} Unterpunkte` : ''));
       row.addEventListener('click', (e) => { e.stopPropagation(); onNodeClick(id); });
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          onNodeClick(id);
+        }
+      });
       return row;
     }
 
@@ -802,6 +826,14 @@ function initViewer() {
     const isTree = activeView === 'tree';
     canvas.style.display = isTree ? 'none' : 'block';
     treeView.style.display = isTree ? 'block' : 'none';
+    if (!isTree) {
+      canvas.setAttribute(
+        'aria-label',
+        `Graph-Visualisierung (${currentFiltered.nodes.length} Knoten, ` +
+          `${currentFiltered.edges.length} Verknüpfungen) — nicht screenreader-` +
+          `zugänglich, siehe Baum-Ansicht für eine navigierbare Liste.`
+      );
+    }
 
     if (activeView === '2d') {
       renderObsidian2D(ctx, currentFiltered, positions, { hoveredId, selectedId: selectedNodeId, camera });
@@ -844,7 +876,12 @@ function initViewer() {
 
   function renderSearchResults(query) {
     const panel = document.getElementById('search-results');
-    if (!query) { panel.style.display = 'none'; return; }
+    const searchInput = document.getElementById('search');
+    if (!query) {
+      panel.style.display = 'none';
+      searchInput.setAttribute('aria-expanded', 'false');
+      return;
+    }
     const matches = searchFullText(currentFiles, query);
     // DOM-Aufbau statt innerHTML mit roher String-Interpolation: Vault-Inhalt
     // (Dateiname/Ausschnitt) kann < & oder HTML-Kommentar-artigen Text
@@ -853,12 +890,15 @@ function initViewer() {
     panel.textContent = '';
     for (const m of matches) {
       const row = document.createElement('div');
+      row.setAttribute('role', 'option');
       const strong = document.createElement('strong');
       strong.textContent = m.filename;
       row.append(strong, document.createTextNode(': …' + m.excerpt + '…'));
       panel.append(row);
     }
-    panel.style.display = matches.length ? 'block' : 'none';
+    const hasMatches = matches.length > 0;
+    panel.style.display = hasMatches ? 'block' : 'none';
+    searchInput.setAttribute('aria-expanded', String(hasMatches));
   }
 
   let timelineInterval = null;
@@ -885,9 +925,11 @@ function initViewer() {
       clearInterval(timelineInterval);
       timelineInterval = null;
       e.target.textContent = '▶';
+      e.target.setAttribute('aria-label', 'Zeitleiste abspielen');
       return;
     }
     e.target.textContent = '⏸';
+    e.target.setAttribute('aria-label', 'Zeitleiste pausieren');
     timelineInterval = setInterval(() => {
       const next = Number(slider.value) + 1;
       if (next > Number(slider.max)) {
@@ -923,7 +965,9 @@ function initViewer() {
     if (timelineInterval) {
       clearInterval(timelineInterval);
       timelineInterval = null;
-      document.getElementById('timeline-play').textContent = '▶';
+      const playBtn = document.getElementById('timeline-play');
+      playBtn.textContent = '▶';
+      playBtn.setAttribute('aria-label', 'Zeitleiste abspielen');
     }
     currentFiles = files;
     currentGraph = buildGraph(files);
@@ -935,6 +979,7 @@ function initViewer() {
     resizeCanvas();
     setupTimeline();
     recomputeAndDraw();
+    announce(`Vault geladen: ${currentFiles.size} Dateien, ${currentGraph.nodes.length} Knoten.`);
   }
 
   document.getElementById('open-folder').addEventListener('click', async () => {
@@ -1101,7 +1146,12 @@ function initViewer() {
   document.querySelectorAll('[data-view]').forEach(btn => {
     btn.addEventListener('click', () => {
       activeView = btn.dataset.view;
-      document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('[data-view]').forEach(b => {
+        const active = b === btn;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', String(active));
+      });
+      announce('Ansicht: ' + btn.textContent);
       recomputeAndDraw();
     });
   });
@@ -1117,7 +1167,11 @@ function initViewer() {
     const theme = THEMES[name] ? name : 'dark';
     currentTheme = THEMES[theme];
     document.documentElement.dataset.theme = theme;
-    document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
+    document.querySelectorAll('.theme-btn').forEach(b => {
+      const active = b.dataset.theme === theme;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', String(active));
+    });
     try { localStorage.setItem('mindvault-theme', theme); } catch { /* z.B. privates Fenster — kein Blocker */ }
     redraw();
     renderTagFilters();

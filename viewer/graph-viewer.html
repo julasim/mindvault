@@ -74,6 +74,31 @@
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .sr-only-focusable:focus {
+    position: fixed;
+    top: 8px; left: 8px;
+    width: auto; height: auto;
+    padding: 10px 16px;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    z-index: 100;
+    background: var(--bg-elev);
+    color: var(--text);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   body {
     display: flex;
     flex-direction: column;
@@ -96,7 +121,7 @@
     flex-shrink: 0;
     flex-wrap: wrap;
   }
-  #brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; white-space: nowrap; }
+  #brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; white-space: nowrap; margin: 0; }
   #brand .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px 1px var(--accent); }
   :root[data-theme="stark"] #brand .dot { animation: stark-pulse 1.8s ease-in-out infinite; }
   @keyframes stark-pulse {
@@ -151,7 +176,6 @@
     border-radius: var(--radius-sm);
     font: inherit;
     font-size: 13px;
-    outline: none;
   }
   #search:focus { border-color: var(--accent-dim); }
   #search-results {
@@ -196,6 +220,7 @@
   }
   .panel { border-bottom: 1px solid var(--border-soft); }
   .panel-head {
+    margin: 0;
     padding: 12px 16px 6px;
     font-size: 10.5px;
     font-weight: 700;
@@ -264,6 +289,7 @@
     color: var(--text-dim);
   }
   .tree-row:hover { background: var(--hover-overlay); color: var(--text); }
+  .tree-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
   .tree-row.tree-row-selected { background: var(--hover-overlay); color: var(--text); box-shadow: 0 0 0 1px var(--accent-dim) inset; }
   .tree-row-root { font-weight: 700; color: var(--text); }
   .tree-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
@@ -287,69 +313,78 @@
 </style>
 </head>
 <body>
-  <div id="topbar">
-    <div id="brand"><span class="dot"></span>Vault Graph Viewer</div>
+  <a href="#main" class="sr-only sr-only-focusable">Zum Inhalt springen</a>
+  <header id="topbar">
+    <h1 id="brand"><span class="dot" aria-hidden="true"></span>Vault Graph Viewer</h1>
     <button id="open-folder">Vault-Ordner öffnen</button>
-    <input type="file" id="drag-fallback" webkitdirectory style="display:none">
-    <div id="tabs">
-      <button class="tab" data-view="2d">Obsidian-2D</button>
-      <button class="tab" data-view="tree">Baum</button>
-      <button class="tab" data-view="sphere">3D-Kugel</button>
-      <button class="tab" data-view="matrix">Matrix</button>
+    <input type="file" id="drag-fallback" webkitdirectory style="display:none" aria-hidden="true" tabindex="-1">
+    <div id="tabs" role="tablist" aria-label="Graph-Ansicht wählen">
+      <button class="tab" role="tab" aria-selected="true" aria-controls="main" data-view="2d">Obsidian-2D</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="main" data-view="tree">Baum</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="main" data-view="sphere">3D-Kugel</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="main" data-view="matrix">Matrix</button>
     </div>
-    <div id="theme-switch">
-      <button class="theme-btn" data-theme="dark" title="Dunkel (Standard)">Dunkel</button>
-      <button class="theme-btn" data-theme="light" title="Hell, schlicht">Hell</button>
-      <button class="theme-btn" data-theme="stark" title="Verspielt">Stark</button>
+    <div id="theme-switch" role="group" aria-label="Design wählen">
+      <button class="theme-btn" aria-pressed="true" data-theme="dark" title="Dunkel (Standard)">Dunkel</button>
+      <button class="theme-btn" aria-pressed="false" data-theme="light" title="Hell, schlicht">Hell</button>
+      <button class="theme-btn" aria-pressed="false" data-theme="stark" title="Verspielt">Stark</button>
     </div>
     <div id="topbar-spacer"></div>
     <div id="search-wrap">
-      <input type="text" id="search" placeholder="Suche…">
-      <div id="search-results"></div>
+      <label for="search" class="sr-only">Volltextsuche im Vault</label>
+      <input type="text" id="search" placeholder="Suche…" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list">
+      <div id="search-results" role="listbox" aria-label="Suchergebnisse"></div>
     </div>
     <button id="export-png">Export PNG</button>
-  </div>
+  </header>
   <div id="body-wrap">
-    <div id="main">
-      <canvas id="graph-canvas"></canvas>
-      <div id="tree-view"></div>
-    </div>
-    <div id="sidebar">
+    <main id="main" aria-label="Graph-Ansicht">
+      <p class="sr-only">Die Ansichten Obsidian-2D, 3D-Kugel und Matrix sind
+        Canvas-Zeichnungen und für Screenreader nicht zugänglich. Nutze den
+        Tab „Baum" für eine vollständig navigierbare Liste aller Dateien und
+        ihrer Verknüpfungen.</p>
+      <canvas id="graph-canvas" role="img" aria-label="Graph-Visualisierung (nicht screenreader-zugänglich, siehe Baum-Ansicht)"></canvas>
+      <div id="tree-view" role="group" aria-label="Dateibaum"></div>
+    </main>
+    <aside id="sidebar" aria-label="Werkzeuge">
       <div class="panel" id="info-panel" style="display:none;">
-        <div class="panel-head">Datei</div>
+        <h2 class="panel-head">Datei</h2>
         <div id="info-body">
-          <button id="info-panel-close">×</button>
+          <button id="info-panel-close" aria-label="Datei-Infofenster schließen">×</button>
           <div id="info-panel-title"></div>
           <pre id="info-panel-content"></pre>
         </div>
       </div>
       <div class="panel">
-        <div class="panel-head">Zeitleiste</div>
+        <h2 class="panel-head">Zeitleiste</h2>
         <div id="timeline-body">
           <div id="timeline-controls">
-            <button id="timeline-play">▶</button>
+            <button id="timeline-play" aria-label="Zeitleiste abspielen">▶</button>
+            <label for="timeline-slider" class="sr-only">Zeitleiste-Position</label>
             <input type="range" id="timeline-slider" min="0" max="0" value="0">
           </div>
           <span id="timeline-label"></span>
         </div>
       </div>
       <div class="panel">
-        <div class="panel-head">Lokaler Graph</div>
+        <h2 class="panel-head">Lokaler Graph</h2>
         <div id="local-graph-body">
           <label><input type="checkbox" id="local-graph-toggle"> aktiv</label>
+          <label for="local-depth-slider" class="sr-only">Tiefe des lokalen Graphen</label>
           <input type="range" id="local-depth-slider" min="1" max="5" value="1">
           <span id="local-depth-label">1</span>
         </div>
       </div>
       <div class="panel" id="tags-panel">
-        <div class="panel-head">Tags</div>
+        <h2 class="panel-head">Tags</h2>
         <div id="legend-controls">
           <label><input type="checkbox" id="hide-orphans"> Verwaiste ausblenden</label>
         </div>
         <div id="tag-filters"></div>
       </div>
-    </div>
+    </aside>
   </div>
+  <div id="a11y-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   <script src="graph-viewer.js"></script>
 </body>
 </html>
