@@ -24,6 +24,11 @@ offline, ohne Server, ohne LLM-Aufruf, ohne Internet.
 
 </details>
 
+Reines Desktop-Tool (Chrome/Edge empfohlen, Firefox/Safari als
+Datei-Dialog-Fallback ungetestet) — auf Mobilgeräten (z.B. iOS Safari)
+funktioniert es nicht, da der Browser dort keinen lokalen Ordner öffnen
+kann.
+
 ## Schnellstart
 
 1. Kopiere `vault-template/` an einen Ort deiner Wahl, z.B. `mein-gedaechtnis/`.
