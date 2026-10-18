@@ -1,5 +1,8 @@
 # mindvault — Dateibasiertes Gedächtnis für jedes LLM
 
+
+[![Tests](https://github.com/julasim/mindvault/actions/workflows/test.yml/badge.svg)](https://github.com/julasim/mindvault/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 Eine portable Markdown-Vault-Struktur für die Arbeit mit beliebigen
 KI-/LLM-Programmen (Claude Code, ChatGPT, Gemini, Cursor, Claude.ai-Projekte),
 ergänzt um einen eigenständigen, LLM-unabhängigen Graph-Viewer — analog zu
