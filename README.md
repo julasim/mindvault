@@ -9,6 +9,8 @@ ergänzt um einen eigenständigen, LLM-unabhängigen Graph-Viewer — analog zu
 Obsidians Graph-Ansicht, aber ohne Obsidian-Installation. Läuft komplett
 offline, ohne Server, ohne LLM-Aufruf, ohne Internet.
 
+![3D-Kugel frei drehbar](docs/images/06-3d-kugel-demo.gif)
+
 ![Obsidian-2D-Ansicht](docs/images/01-obsidian-2d-dunkel.png)
 
 <details>
